@@ -138,7 +138,11 @@ export async function cliDumpEmails() {
 				console.log(`    Body (HTML): ${email.body.html.substring(0, 100)}...`);
 			}
 
-			await handleOneEmail(email);
+			try {
+				await handleOneEmail(email);
+			} catch (error) {
+				console.error(`Error handling email ${email.id}:`, error);
+			}
 		}
 	} catch (error) {
 		console.error("Error fetching emails:", error);
