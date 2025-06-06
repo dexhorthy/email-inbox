@@ -56,21 +56,20 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 		text: "",
 		html: "",
 	};
-	console.log(email.data.payload);
 	if (!email.data.payload) return;
 	for (const part of email.data.payload.parts || []) {
 		if (part.mimeType === "multipart/alternative") {
 			for (const p of part?.parts || []) {
 				if (p.mimeType === "text/plain" && p.body?.data) {
 					body.text = Buffer.from(p.body.data, "base64").toString();
-					console.log("found text/plain part", body.text);
+					//d text/plain part", body.text);
 				} else if (p.mimeType === "text/html" && p.body?.data) {
 					body.html = Buffer.from(p.body.data, "base64").toString();
-					console.log("found text/html part", body.html);
+					//					console.log("found text/html part", body.html);
 				}
 			}
 		} else {
-			console.log("found UNUSABLE part", part.mimeType);
+			//	console.log("found UNUSABLE part", part.mimeType);
 		}
 	}
 
@@ -88,7 +87,7 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 	`;
 
 	// Combine snippet and body for spam analysis
-	console.log("fullEmailContent", envelope, body.html, body.text);
+	//console.log("fullEmailContent", envelope, body.html, body.text);
 	const isSpam = await b.IsSpam(envelope, body.html, body.text, state.rules);
 
 	console.log(`email is spam: ${isSpam.is_spam} because 
@@ -119,7 +118,7 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 		if (isSpam.is_spam && approved) {
 			// TODO push to spam
 			console.log("pushing to spam");
-			await labelEmail(email.id!, "SPAM");
+			await labelEmail(emailInfo.id!, "SPAM");
 			return;
 		}
 
@@ -137,11 +136,11 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 	switch (classification.classification) {
 		case "read_today":
 			console.log("labeling as read_today");
-			await labelEmail(email.id!, "@read_today");
+			await labelEmail(emailInfo.id!, "@read_today");
 			break;
 		case "read_later":
 			console.log("labeling as read_later");
-			await labelEmail(email.id!, "@read_later");
+			await labelEmail(emailInfo.id!, "@read_later");
 			break;
 		case "notify_immediately":
 			// TODO draft the proposed action, and then ask the user to approve it

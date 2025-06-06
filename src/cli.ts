@@ -1,14 +1,12 @@
 // cli.ts lets you invoke the agent loop from the command line
 
-import { agentops } from 'agentops';
+import { agentops } from "agentops";
 
-import chalk from "chalk";
 import dotenv from "dotenv";
 import fs from "fs/promises";
 import type { gmail_v1 } from "googleapis";
 import { google } from "googleapis";
 import path from "path";
-import { type Event, Thread, agentLoop, handleNextStep } from "../src/agent";
 import { handleOneEmail } from "./handleEmail";
 import { FileSystemThreadStore } from "./state";
 
@@ -34,16 +32,19 @@ interface GmailHeader {
 	value: string;
 }
 
-function getEmailBody(parts: gmail_v1.Schema$MessagePart[] | undefined): { plain?: string; html?: string } {
+function getEmailBody(parts: gmail_v1.Schema$MessagePart[] | undefined): {
+	plain?: string;
+	html?: string;
+} {
 	if (!parts) return {};
 
 	const body: { plain?: string; html?: string } = {};
 
 	for (const part of parts) {
-		if (part.mimeType === 'text/plain' && part.body?.data) {
-			body.plain = Buffer.from(part.body.data, 'base64').toString('utf-8');
-		} else if (part.mimeType === 'text/html' && part.body?.data) {
-			body.html = Buffer.from(part.body.data, 'base64').toString('utf-8');
+		if (part.mimeType === "text/plain" && part.body?.data) {
+			body.plain = Buffer.from(part.body.data, "base64").toString("utf-8");
+		} else if (part.mimeType === "text/html" && part.body?.data) {
+			body.html = Buffer.from(part.body.data, "base64").toString("utf-8");
 		}
 
 		// Recursively check nested parts
@@ -94,7 +95,7 @@ export async function cliDumpEmails() {
 				const email = await gmail.users.messages.get({
 					userId: "me",
 					id: message.id!,
-					format: 'full'  // Get the full message including body
+					format: "full", // Get the full message including body
 				});
 
 				const headers = email.data.payload?.headers as
@@ -116,25 +117,28 @@ export async function cliDumpEmails() {
 					from,
 					date,
 					snippet: email.data.snippet,
-					body
+					body,
 				} as EmailMessage;
 			}),
 		);
 
 		// Print the emails
 		console.log("\nHANDLING EMAILS\n\n");
-        for (const [index, email] of emailDetails.entries()) {
+		for (const [index, email] of emailDetails.entries()) {
 			console.log(`[${index + 1}] Subject: ${email.subject}`);
 			console.log(`    From: ${email.from}`);
 			console.log(`    Date: ${email.date}`);
 			console.log(`    Preview: ${email.snippet}`);
 			if (email.body.plain) {
-				console.log(`    Body (plain): ${email.body.plain.substring(0, 100)}...`);
+				console.log(
+					`    Body (plain): ${email.body.plain.substring(0, 100)}...`,
+				);
 			}
 			if (email.body.html) {
 				console.log(`    Body (HTML): ${email.body.html.substring(0, 100)}...`);
 			}
-            await handleOneEmail(email);
+
+			await handleOneEmail(email);
 		}
 	} catch (error) {
 		console.error("Error fetching emails:", error);
@@ -193,7 +197,7 @@ async function labelLastEmailAsActions() {
 
 if (require.main === module) {
 	(async () => {
-        await agentops.init();
+		await agentops.init();
 		try {
 			await cliDumpEmails();
 		} catch (error) {
