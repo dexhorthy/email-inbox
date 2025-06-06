@@ -17,5 +17,7 @@ function IsSpam(email: string, extra_rules: string) -> SpamResult {
     {{ _.role('user') }}
 
     {{ email }}
+
+    {{ ctx.output_format }}
     "#
 }
