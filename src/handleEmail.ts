@@ -6,7 +6,7 @@ import { b } from "../baml_client";
 import { checkWithHuman } from "./checkWithHuman";
 import { contactHuman, getDraftFeedback } from "./contactHuman";
 
-async function loadRules(): Promise<string> {
+export async function loadRules(): Promise<string> {
 	try {
 		return await fs.readFile("src/rules.txt", "utf-8");
 	} catch (error) {
@@ -22,7 +22,7 @@ do NOT mark as spam emails that:
 	}
 }
 
-async function saveRules(rules: string): Promise<void> {
+export async function saveRules(rules: string): Promise<void> {
 	await fs.writeFile("src/rules.txt", rules, "utf-8");
 }
 

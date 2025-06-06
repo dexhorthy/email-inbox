@@ -1,5 +1,5 @@
 import { b, SpamResult } from "@/baml_client";
-import { state } from "./handleEmail";
+import { loadRules, saveRules } from "./handleEmail";
 
 export const updateRules = async (
     email: string,
@@ -27,7 +27,7 @@ export const updateRules = async (
 if (require.main === module) {
     // test for update rules
     console.log("existing ruleset:")
-    console.log(state.rules)
+    console.log(await loadRules())
     const result = await updateRules(
         "check out these dope memes",
         {
@@ -42,7 +42,7 @@ if (require.main === module) {
          `,
     )
     console.log("updated ruleset:")
-    console.log(state.rules)
 
+    await saveRules(result)
 
 }
