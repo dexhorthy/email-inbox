@@ -282,8 +282,8 @@ async function cliGetGmailTokenUsingClientCredentials() {
 
         // Create OAuth2 client with the correct redirect URI
         const oauth2Client = new google.auth.OAuth2(
-            credentials.installed.client_id,
-            credentials.installed.client_secret,
+            credentials.web.client_id,
+            credentials.web.client_secret,
             `http://localhost:${port}`
         );
 

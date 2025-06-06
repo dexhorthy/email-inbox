@@ -1,0 +1,40 @@
+[project]
+name = "e2e"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.32.3",
+    "google-auth",
+    "google-auth-oauthlib",
+    "google-auth-httplib2",
+    "google-api-python-client",
+    "python-dotenv>=1.0.1",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "mypy>=1.15.0",
+    "ruff>=0.9.6",
+    "types-requests>=2.31.0",
+]
+
+[tool.black]
+line-length = 104
+exclude = '''
+/(
+    \.venv
+)/
+'''
+
+[tool.mypy]
+exclude = [
+    '.venv',
+]
+
+[tool.ruff]
+exclude = [
+    ".venv",
+]
