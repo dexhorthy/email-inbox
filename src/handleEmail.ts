@@ -100,7 +100,7 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 	// Decide if the email is spam
 	if (isSpam.is_spam && isSpam.high_confidence) {
 		console.log("Labeling email as SPAM");
-		await labelEmail(email.id!, "SPAM");
+		await labelEmail(emailInfo.id!, "SPAM");
 		return;
 	}
 	if (!isSpam.high_confidence) {
