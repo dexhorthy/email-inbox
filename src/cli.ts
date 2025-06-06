@@ -83,7 +83,7 @@ export async function cliDumpEmails() {
 		// Get the last 50 emails
 		const response = await gmail.users.messages.list({
 			userId: "me",
-			maxResults: 50,
+			maxResults: 5,
 		});
 
 		const messages = response.data.messages || [];
@@ -122,8 +122,8 @@ export async function cliDumpEmails() {
 		);
 
 		// Print the emails
-		console.log("\nLast 50 Emails:\n");
-		emailDetails.forEach((email: EmailMessage, index: number) => {
+		console.log("\nHANDLING EMAILS\n\n");
+        for (const [index, email] of emailDetails.entries()) {
 			console.log(`[${index + 1}] Subject: ${email.subject}`);
 			console.log(`    From: ${email.from}`);
 			console.log(`    Date: ${email.date}`);
@@ -134,8 +134,8 @@ export async function cliDumpEmails() {
 			if (email.body.html) {
 				console.log(`    Body (HTML): ${email.body.html.substring(0, 100)}...`);
 			}
-			console.log();
-		});
+            await handleOneEmail(email);
+		}
 	} catch (error) {
 		console.error("Error fetching emails:", error);
 		throw error;
@@ -196,7 +196,6 @@ if (require.main === module) {
         await agentops.init();
 		try {
 			await cliDumpEmails();
-			await labelLastEmailAsActions();
 		} catch (error) {
 			console.error("Error:", error);
 			process.exit(1);
