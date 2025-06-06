@@ -6,20 +6,29 @@ import { b } from "../baml_client";
 import { checkWithHuman } from "./checkWithHuman";
 import { contactHuman, getDraftFeedback } from "./contactHuman";
 
-export const state = {
-	// rules that will be updated by the agent via user
-	rules: `
-Mark as spam all emails that:
+async function loadRules(): Promise<string> {
+	try {
+		return await fs.readFile("src/rules.txt", "utf-8");
+	} catch (error) {
+		// If file doesn't exist, return default rules
+		return `Mark as spam all emails that:
 - are a cold outreach email
 - are a sales/marketing email e.g. for an e-commerce site. 
 
 do NOT mark as spam emails that:
 - pertain to event notifications
 - contain an authentication/authorization code e.g. for 2FA
-- contain a "magic link" to sign in or similar.
+- contain a "magic link" to sign in or similar.`;
+	}
+}
 
-`,
-};
+async function saveRules(rules: string): Promise<void> {
+	await fs.writeFile("src/rules.txt", rules, "utf-8");
+}
+
+// Initialize rules
+let rules = await loadRules();
+
 const tokenContent = await fs.readFile("gmail_token.json", "utf-8");
 const credentials = JSON.parse(tokenContent);
 
@@ -70,14 +79,10 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 			for (const p of part?.parts || []) {
 				if (p.mimeType === "text/plain" && p.body?.data) {
 					body.text = Buffer.from(p.body.data, "base64").toString();
-					//d text/plain part", body.text);
 				} else if (p.mimeType === "text/html" && p.body?.data) {
 					body.html = Buffer.from(p.body.data, "base64").toString();
-					//					console.log("found text/html part", body.html);
 				}
 			}
-		} else {
-			//	console.log("found UNUSABLE part", part.mimeType);
 		}
 	}
 
@@ -96,62 +101,70 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 	Date: ${date}
 	`;
 
-	// Combine snippet and body for spam analysis
-	//console.log("fullEmailContent", envelope, body.html, body.text);
-	const isSpam = await b.IsSpam(envelope, body.html, body.text, state.rules);
+	const isSpam = await b.IsSpam(envelope, body.html, body.text, rules);
 
-	console.log(`email is spam: ${isSpam.is_spam} because 
-
-        reasons: ${isSpam.spam_rules_matched.join(", ")}
-        
-        qualities: ${isSpam.spammy_qualities.join(", ")}
-        `);
+	console.log("\n🔍 Spam Analysis");
+	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+	console.log(`Status: ${isSpam.is_spam ? "🚫 Spam" : "✅ Not Spam"}`);
+	if (isSpam.spam_rules_matched.length > 0) {
+		console.log("\n📋 Matched Rules:");
+		isSpam.spam_rules_matched.forEach(rule => console.log(`  • ${rule}`));
+	}
+	if (isSpam.spammy_qualities.length > 0) {
+		console.log("\n⚠️ Spammy Qualities:");
+		isSpam.spammy_qualities.forEach(quality => console.log(`  • ${quality}`));
+	}
+	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
 	// Decide if the email is spam
-	console.log("unclear on if email is spam or not, asking for clarification");
+	console.log("🤔 Verifying classification with human...");
 	const { updatedRuleset, approved } = await checkWithHuman({
 		from: from ?? "Unknown Sender",
 		subject: subject ?? "Unknown Subject",
 		body: body.html.length > body.text.length ? body.html : body.text,
 		proposedClassification: isSpam,
-		existingRuleset: state.rules,
+		existingRuleset: rules,
 	});
 
-	state.rules = updatedRuleset ?? state.rules;
+	if (updatedRuleset) {
+		// Update rules file directly
+		await fs.writeFile("src/rules.txt", updatedRuleset, "utf-8");
+		rules = updatedRuleset;
+	}
 
 	if (isSpam.is_spam && approved) {
-		// TODO push to spam
-		console.log("pushing to spam");
+		console.log("🚫 Moving to spam folder...");
 		await labelEmail(emailInfo.id!, "SPAM");
 		return;
 	}
 
 	// Otherwise continue to classification
-	console.log("continuing to classification");
+	console.log("\n📋 Classifying email...");
 
 	const classification = await b.Classify(
 		subject ?? "Unknown Subject",
 		from ?? "Unknown Sender",
 		body.html,
-		state.rules,
+		rules,
 	);
-	console.log("classification", classification);
+
+	console.log("\n📌 Classification Result");
+	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 	switch (classification.classification) {
 		case "read_today":
-			console.log("labeling as read_today");
+			console.log("📌 Labeling as: Read Today");
 			await labelEmail(emailInfo.id!, "@read_today");
 			break;
 		case "read_later":
-			console.log("labeling as read_later");
+			console.log("📌 Labeling as: Read Later");
 			await labelEmail(emailInfo.id!, "@read_later");
 			break;
 		case "notify_immediately":
-			// TODO draft the proposed action, and then ask the user to approve it
+			console.log("🔔 Important: Requires immediate attention");
 			await contactHuman(classification.message);
 			break;
 		case "draft_reply":
-			console.log("drafting reply");
-			// TODO forward the email to the use
+			console.log("✍️ Drafting reply...");
 			await getDraftFeedback({
 				from: from ?? "Unknown Sender",
 				subject: subject ?? "Unknown Subject",
@@ -161,6 +174,7 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 			});
 			break;
 	}
+	console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 }
 
 export async function labelEmail(
@@ -216,5 +230,5 @@ export async function labelEmail(
 		},
 	});
 
-	console.log("Successfully labeled the most recent email with @actions");
+	console.log(`Successfully labeled the most recent email with ${labelName}`);
 }

@@ -123,25 +123,20 @@ export async function cliDumpEmails() {
 		);
 
 		// Print the emails
-		console.log("\nHANDLING EMAILS\n\n");
+		console.log("\n📧 Processing Emails\n");
 		for (const [index, email] of emailDetails.entries()) {
-			console.log(`[${index + 1}] Subject: ${email.subject}`);
-			console.log(`    From: ${email.from}`);
-			console.log(`    Date: ${email.date}`);
-			console.log(`    Preview: ${email.snippet}`);
-			if (email.body.plain) {
-				console.log(
-					`    Body (plain): ${email.body.plain.substring(0, 100)}...`,
-				);
-			}
-			if (email.body.html) {
-				console.log(`    Body (HTML): ${email.body.html.substring(0, 100)}...`);
-			}
+			console.log(`\n📬 Email ${index + 1}/${emailDetails.length}`);
+			console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+			console.log(`📝 Subject: ${email.subject}`);
+			console.log(`👤 From: ${email.from}`);
+			console.log(`🕒 Date: ${email.date}`);
+			console.log(`📋 Preview: ${email.snippet}`);
+			console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
 			try {
 				await handleOneEmail(email);
 			} catch (error) {
-				console.error(`Error handling email ${email.id}:`, error);
+				console.error(`❌ Error handling email ${email.id}:`, error);
 			}
 		}
 	} catch (error) {

@@ -26,21 +26,27 @@ export const checkWithHuman = async (
 	let call = await hl.createHumanContact({
 		spec: {
             msg: `
+📧 Email Review Request
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+From: ${input.from}
+Subject: "${input.subject}"
 
-email from ${input.from} with subject "${input.subject}" and body 
-
+Preview:
 > ${input.body.slice(0, 100)}...
 
-was classified as ${input.proposedClassification.is_spam ? "spam" : "not spam"} ${input.proposedClassification.spam_rules_matched ? 'considering the follwing rules' : ''}
+Classification: ${input.proposedClassification.is_spam ? "🚫 Spam" : "✅ Not Spam"}
+${input.proposedClassification.spam_rules_matched.length > 0 ? '\nMatched Rules:' : ''}
+${input.proposedClassification.spam_rules_matched.map(rule => `• ${rule}`).join("\n")}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-${input.proposedClassification.spam_rules_matched.map(rule => `- ${rule}`).join("\n")}
+Please review this classification.
             `,
 			response_options: [
                 {
-                    name: "spam",
+                    name: "spam"
                 },
                 {
-                    name: "not spam",
+                    name: "not spam"
                 }
             ],
 			channel: {
