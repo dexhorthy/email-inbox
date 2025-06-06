@@ -11,6 +11,10 @@ import { gmail_v1 } from 'googleapis';
 import open from 'open';
 import http from 'http';
 import url from 'url';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 
 const threadStore = new FileSystemThreadStore();
 
@@ -267,13 +271,12 @@ async function cliGetGmailTokenUsingClientCredentials() {
             }
         });
 
-        // Start the server on a random port
-        const port = await new Promise<number>((resolve) => {
-            server.listen(0, () => {
-                const address = server.address();
-                if (address && typeof address === 'object') {
-                    resolve(address.port);
-                }
+        // Start the server on port 8000
+        const port = 8000;
+        await new Promise<void>((resolve) => {
+            server.listen(port, () => {
+                console.log(`Server listening on port ${port}`);
+                resolve();
             });
         });
 
