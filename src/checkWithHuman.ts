@@ -23,19 +23,26 @@ export const checkWithHuman = async (
 	input: CheckWithHumanInput,
 ): Promise<CheckWithHumanOutput> => {
 	const hl = humanlayer();
-	const response = await hl.fetchHumanApproval({
+	let call = await hl.createHumanContact({
 		spec: {
-			fn: "validate_spam_classification",
-			kwargs: {
-				from: input.from,
-				subject: input.subject,
-				body: input.body,
-				classification: input.proposedClassification.is_spam
-					? "spam"
-					: "not spam",
-				spamRulesMatched: input.proposedClassification.spam_rules_matched,
-				spammyQualities: input.proposedClassification.spammy_qualities,
-			},
+            msg: `
+
+email from ${input.from} with subject "${input.subject}" and body 
+
+> ${input.body.slice(0, 100)}...
+
+was classified as ${input.proposedClassification.is_spam ? "spam" : "not spam"} ${input.proposedClassification.spam_rules_matched ? 'considering the follwing rules' : ''}
+
+${input.proposedClassification.spam_rules_matched.map(rule => `- ${rule}`).join("\n")}
+            `,
+			response_options: [
+                {
+                    name: "spam",
+                },
+                {
+                    name: "not spam",
+                }
+            ],
 			channel: {
 				slack: {
 					channel_or_user_id: "",
@@ -45,7 +52,16 @@ export const checkWithHuman = async (
 		},
 	});
 
-	if (response.approved) {
+
+    while (!call.status?.response) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        call = await hl.getHumanContact(call.call_id);
+    }
+
+
+	if (input.proposedClassification.is_spam && call.status.response_option_name === "spam" ||
+        !input.proposedClassification.is_spam && call.status.response_option_name === "not spam"
+    ) {
 		return {
 			approved: true,
 		};
@@ -53,7 +69,7 @@ export const checkWithHuman = async (
 		const updatedRuleset = await updateRules(
 			input.body,
 			input.proposedClassification,
-			response.comment!,
+			call.status.response!,
 			input.existingRuleset,
 		);
 		return {
