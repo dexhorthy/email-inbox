@@ -225,99 +225,6 @@ async function approveCLI(message: string): Promise<Approval> {
     });
 }
 
-async function cliGetGmailTokenUsingClientCredentials() {
-    try {
-        // Read the credentials file
-        const credentialsPath = path.join(process.cwd(), 'gmail_creds.json');
-        const credentialsContent = await fs.readFile(credentialsPath, 'utf-8');
-        const credentials = JSON.parse(credentialsContent);
-
-        // Start a local server to receive the OAuth callback
-        const server = http.createServer(async (req, res) => {
-            try {
-                const queryParams = url.parse(req.url!, true).query;
-                const code = queryParams.code as string;
-
-                if (code) {
-                    // Create OAuth2 client with the correct redirect URI
-                    const oauth2Client = new google.auth.OAuth2(
-                        credentials.installed.client_id,
-                        credentials.installed.client_secret,
-                        `http://localhost:${port}`
-                    );
-
-                    // Exchange the code for tokens
-                    const { tokens } = await oauth2Client.getToken(code);
-                    
-                    // Save the tokens to gmail_token.json
-                    await fs.writeFile(
-                        path.join(process.cwd(), 'gmail_token.json'),
-                        JSON.stringify(tokens, null, 2)
-                    );
-
-                    res.writeHead(200, { 'Content-Type': 'text/html' });
-                    res.end('Authentication successful! You can close this window and return to the terminal.');
-                } else {
-                    res.writeHead(400, { 'Content-Type': 'text/html' });
-                    res.end('Authentication failed! No code received.');
-                }
-            } catch (error) {
-                console.error('Error during authentication:', error);
-                res.writeHead(500, { 'Content-Type': 'text/html' });
-                res.end('Authentication failed! Please try again.');
-            } finally {
-                // Close the server after handling the request
-                server.close();
-            }
-        });
-
-        // Start the server on port 8000
-        const port = 8000;
-        await new Promise<void>((resolve) => {
-            server.listen(port, () => {
-                console.log(`Server listening on port ${port}`);
-                resolve();
-            });
-        });
-
-        // Create OAuth2 client with the correct redirect URI
-        const oauth2Client = new google.auth.OAuth2(
-            credentials.web.client_id,
-            credentials.web.client_secret,
-            `http://localhost:${port}`
-        );
-
-        // Generate the authorization URL
-        const scopes = [
-            'https://www.googleapis.com/auth/gmail.readonly',
-            'https://www.googleapis.com/auth/gmail.compose',
-            'https://www.googleapis.com/auth/gmail.modify',
-        ];
-
-        const authUrl = oauth2Client.generateAuthUrl({
-            access_type: 'offline',
-            scope: scopes,
-            prompt: 'consent'
-        });
-
-        // Open the authorization URL in the default browser
-        console.log('Opening browser for authentication...');
-        await open(authUrl);
-
-        // Wait for the server to receive the callback
-        await new Promise<void>((resolve) => {
-            server.on('close', () => {
-                console.log('Authentication completed!');
-                resolve();
-            });
-        });
-
-    } catch (error) {
-        console.error('Error during OAuth flow:', error);
-        throw error;
-    }
-}
-
 async function labelLastEmailAsActions() {
     try {
         // Read the token file
@@ -402,9 +309,8 @@ async function labelLastEmailAsActions() {
 if (require.main === module) {
     (async () => {
         try {
-            await cliGetGmailTokenUsingClientCredentials();
             await cliDumpEmails();
-            // await labelLastEmailAsActions();
+            await labelLastEmailAsActions();
         } catch (error) {
             console.error('Error:', error);
             process.exit(1);

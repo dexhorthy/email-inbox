@@ -6,6 +6,7 @@ from googleapiclient.discovery import build, Resource  # type: ignore
 
 
 GMAIL_CREDS_PATH = "gmail_creds.json"
+PORT = os.environ.get("PORT", 8000)
 
 def email():
     SCOPES = [
@@ -25,7 +26,7 @@ def email():
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(GMAIL_CREDS_PATH, SCOPES)
-            creds = flow.run_local_server(port=8022, access_type="offline", prompt="consent")
+            creds = flow.run_local_server(port=PORT, access_type="offline", prompt="consent")
 
         # Save credentials for future use
         with open(token_path, "w") as token:
