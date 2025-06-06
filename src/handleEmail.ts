@@ -46,6 +46,7 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 		userId: "me",
 		id: emailInfo.id!,
 	});
+	console.log("got email", email.data.payload.parts[0]);
 
 	const headers = email.data.payload?.headers;
 	const subject = headers?.find((h) => h.name === "Subject")?.value;
@@ -58,6 +59,13 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 	};
 	if (!email.data.payload) return;
 	for (const part of email.data.payload.parts || []) {
+		if (part.body) {
+			if (part.mimeType === "text/plain" && part.body?.data) {
+				body.text = Buffer.from(part.body.data, "base64").toString();
+			} else if (part.mimeType === "text/html" && part.body?.data) {
+				body.html = Buffer.from(part.body.data, "base64").toString();
+			}
+		}
 		if (part.mimeType === "multipart/alternative") {
 			for (const p of part?.parts || []) {
 				if (p.mimeType === "text/plain" && p.body?.data) {
@@ -79,6 +87,8 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 	]);
 	body.text = text.markdown;
 	body.html = html.markdown;
+
+	console.log("body", body);
 
 	const envelope = `
 	Subject: ${subject}
