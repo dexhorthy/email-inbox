@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import TurndownService from "turndown";
 import { b } from "../baml_client";
 import { checkWithHuman } from "./checkWithHuman";
+import { contactHuman, getDraftFeedback } from "./contactHuman";
 
 export const state = {
 	// rules that will be updated by the agent via user
@@ -97,15 +98,13 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
         qualities: ${isSpam.spammy_qualities.join(", ")}
         `);
 
+	// Decide if the email is spam
 	if (isSpam.is_spam && isSpam.high_confidence) {
 		console.log("Labeling email as SPAM");
-		//await labelEmail(email.id!, "SPAM");
-	} else if (!isSpam.is_spam && isSpam.high_confidence) {
-		console.log(
-			"High confidence that email is not spam; proceeding to classification",
-		);
-		// TODO
-	} else {
+		await labelEmail(email.id!, "SPAM");
+		return;
+	}
+	if (!isSpam.high_confidence) {
 		console.log("unclear on if email is spam or not, asking for clarification");
 		const { updatedRuleset, approved } = await checkWithHuman({
 			from: from ?? "Unknown Sender",
@@ -114,7 +113,51 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 			proposedClassification: isSpam,
 			existingRuleset: state.rules,
 		});
-		// TODO
+
+		state.rules = updatedRuleset ?? state.rules;
+
+		if (isSpam.is_spam && approved) {
+			// TODO push to spam
+			console.log("pushing to spam");
+			await labelEmail(email.id!, "SPAM");
+			return;
+		}
+
+		// Otherwise continue to classification
+		console.log("continuing to classification");
+	}
+
+	const classification = await b.Classify(
+		subject ?? "Unknown Subject",
+		from ?? "Unknown Sender",
+		body.html,
+		state.rules,
+	);
+	console.log("classification", classification);
+	switch (classification.classification) {
+		case "read_today":
+			console.log("labeling as read_today");
+			await labelEmail(email.id!, "@read_today");
+			break;
+		case "read_later":
+			console.log("labeling as read_later");
+			await labelEmail(email.id!, "@read_later");
+			break;
+		case "notify_immediately":
+			// TODO draft the proposed action, and then ask the user to approve it
+			await contactHuman(classification.message);
+			break;
+		case "draft_reply":
+			console.log("drafting reply");
+			// TODO forward the email to the use
+			await getDraftFeedback({
+				from: from ?? "Unknown Sender",
+				subject: subject ?? "Unknown Subject",
+				summary: classification.summary,
+				body: classification.body,
+				classification: "draft_reply",
+			});
+			break;
 	}
 }
 
