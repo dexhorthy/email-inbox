@@ -1,7 +1,7 @@
 import { gmail_v1 } from "googleapis";
 import {b } from "../baml_client"
 
-const state = {
+export const state = {
     // rules that will be updated by the agent via user
     rules: `
 - drop all emails with an unsubscribe link
