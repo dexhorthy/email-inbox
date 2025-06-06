@@ -288,8 +288,7 @@ async function cliGetGmailTokenUsingClientCredentials() {
         const scopes = [
             'https://www.googleapis.com/auth/gmail.readonly',
             'https://www.googleapis.com/auth/gmail.compose',
-            'https://www.googleapis.com/auth/gmail.messages.modify',
-            'https://www.googleapis.com/auth/gmail.threads.modify'
+            'https://www.googleapis.com/auth/gmail.modify',
         ];
 
         const authUrl = oauth2Client.generateAuthUrl({
@@ -402,7 +401,7 @@ if (require.main === module) {
         try {
             await cliGetGmailTokenUsingClientCredentials();
             await cliDumpEmails();
-            await labelLastEmailAsActions();
+            // await labelLastEmailAsActions();
         } catch (error) {
             console.error('Error:', error);
             process.exit(1);
