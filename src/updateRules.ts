@@ -25,3 +25,15 @@ export const updateRules = async (
     throw new Error(`Failed to update rules after 3 attempts`)
 
 }
+
+if (require.main === module) {
+    const result = await updateRules(
+        "check out these dope memes",
+        { is_spam: true, spam_rules_matched: ["test"], spammy_qualities: [], high_confidence: false },
+        "memes are always good",
+        `- memes are only good sometimes
+         - emails with unsubscribe links are always spam
+         `,
+    )
+    console.log(result)
+}

@@ -3,7 +3,7 @@ import { google } from "googleapis";
 import fs from "node:fs/promises";
 import { b } from "../baml_client";
 
-const state = {
+export const state = {
 	// rules that will be updated by the agent via user
 	rules: `
 Mark as spam all emails that:
