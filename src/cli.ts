@@ -1,5 +1,7 @@
 // cli.ts lets you invoke the agent loop from the command line
 
+import { agentops } from 'agentops';
+
 import chalk from "chalk";
 import dotenv from "dotenv";
 import fs from "fs/promises";
@@ -21,11 +23,38 @@ interface EmailMessage {
 	from: string;
 	date: string;
 	snippet: string;
+	body: {
+		plain?: string;
+		html?: string;
+	};
 }
 
 interface GmailHeader {
 	name: string;
 	value: string;
+}
+
+function getEmailBody(parts: gmail_v1.Schema$MessagePart[] | undefined): { plain?: string; html?: string } {
+	if (!parts) return {};
+
+	const body: { plain?: string; html?: string } = {};
+
+	for (const part of parts) {
+		if (part.mimeType === 'text/plain' && part.body?.data) {
+			body.plain = Buffer.from(part.body.data, 'base64').toString('utf-8');
+		} else if (part.mimeType === 'text/html' && part.body?.data) {
+			body.html = Buffer.from(part.body.data, 'base64').toString('utf-8');
+		}
+
+		// Recursively check nested parts
+		if (part.parts) {
+			const nestedBody = getEmailBody(part.parts);
+			if (nestedBody.plain) body.plain = nestedBody.plain;
+			if (nestedBody.html) body.html = nestedBody.html;
+		}
+	}
+
+	return body;
 }
 
 export async function cliDumpEmails() {
@@ -65,6 +94,7 @@ export async function cliDumpEmails() {
 				const email = await gmail.users.messages.get({
 					userId: "me",
 					id: message.id!,
+					format: 'full'  // Get the full message including body
 				});
 
 				const headers = email.data.payload?.headers as
@@ -77,12 +107,16 @@ export async function cliDumpEmails() {
 				const date =
 					headers?.find((h) => h.name === "Date")?.value || "Unknown Date";
 
+				// Get the email body
+				const body = getEmailBody(email.data.payload?.parts);
+
 				return {
 					id: message.id!,
 					subject,
 					from,
 					date,
 					snippet: email.data.snippet,
+					body
 				} as EmailMessage;
 			}),
 		);
@@ -93,140 +127,19 @@ export async function cliDumpEmails() {
 			console.log(`[${index + 1}] Subject: ${email.subject}`);
 			console.log(`    From: ${email.from}`);
 			console.log(`    Date: ${email.date}`);
-			console.log(`    Preview: ${email.snippet}\n`);
+			console.log(`    Preview: ${email.snippet}`);
+			if (email.body.plain) {
+				console.log(`    Body (plain): ${email.body.plain.substring(0, 100)}...`);
+			}
+			if (email.body.html) {
+				console.log(`    Body (HTML): ${email.body.html.substring(0, 100)}...`);
+			}
+			console.log();
 		});
 	} catch (error) {
 		console.error("Error fetching emails:", error);
 		throw error;
 	}
-}
-
-export async function cliOuterLoop(message: string) {
-	// Create a new thread with the user's message as the initial event
-	const thread = new Thread([{ type: "user_input", data: message }]);
-	const threadId = await threadStore.create(thread);
-
-	// Run the agent loop with the thread
-
-	// loop until ctrl+c
-	// optional, you could exit on done_for_now and print the final result
-	// while (lastEvent.data.intent !== "done_for_now") {
-	while (true) {
-		const newThread = await agentLoop(thread);
-		await threadStore.update(threadId, newThread);
-		const lastEvent = newThread.lastEvent();
-
-		// everything on CLI
-		const responseEvent = await askHumanCLI(lastEvent);
-		newThread.events.push(responseEvent);
-		// if (lastEvent.data.intent === "request_approval_from_manager") {
-		//     const responseEvent = await askManager(lastEvent);
-		//     thread.events.push(responseEvent);
-		// } else {
-		//     const responseEvent = await askHumanCLI(lastEvent);
-		//     thread.events.push(responseEvent);
-		// }
-		await threadStore.update(threadId, newThread);
-	}
-}
-
-export async function cli() {
-	// Get command line arguments, skipping the first two (node and script name)
-	const args = process.argv.slice(2);
-
-	const message = args.length === 0 ? "hello!" : args.join(" ");
-
-	await cliOuterLoop(message);
-}
-
-// async function askManager(lastEvent: Event): Promise<Event> {
-//     const hl = humanlayer({
-//         contactChannel: {
-//              email: {
-//                 address: process.env.HUMANLAYER_EMAIL_ADDRESS || "manager@example.com"
-//             }
-//         }
-//     })
-//     const resp = await hl.fetchHumanResponse({
-//         spec: {
-//             msg: lastEvent.data.message
-//         }
-//      })
-//      return {
-//         type: "manager_response",
-//         data: resp
-//      }
-// }
-
-async function askHumanCLI(lastEvent: Event): Promise<Event> {
-	switch (lastEvent.data.intent) {
-		case "divide":
-			const response = await approveCLI(
-				`agent wants to run ${chalk.green(JSON.stringify(lastEvent.data))}\nPress Enter to approve, or type feedback to cancel:`,
-			);
-			if (response.approved) {
-				const thread = new Thread([lastEvent]);
-				const result = await handleNextStep(lastEvent.data, thread);
-				return result.events[result.events.length - 1];
-			} else {
-				return {
-					type: "tool_response",
-					data: `user denied operation ${lastEvent.data.intent} with feedback: ${response.comment}`,
-				};
-			}
-		case "request_more_information":
-		case "request_approval_from_manager":
-		case "done_for_now":
-			const message = await messageCLI(lastEvent.data.message);
-			return {
-				type: "tool_response",
-				data: message,
-			};
-		default:
-			throw new Error(`unknown tool in outer loop: ${lastEvent.data.intent}`);
-	}
-}
-
-type Approval =
-	| {
-			approved: true;
-	  }
-	| {
-			approved: false;
-			comment: string;
-	  };
-async function messageCLI(message: string): Promise<string> {
-	const readline = require("readline").createInterface({
-		input: process.stdin,
-		output: process.stdout,
-	});
-
-	return new Promise((resolve) => {
-		readline.question(`${message}\n> `, (answer: string) => {
-			readline.close();
-			resolve(answer);
-		});
-	});
-}
-
-async function approveCLI(message: string): Promise<Approval> {
-	const readline = require("readline").createInterface({
-		input: process.stdin,
-		output: process.stdout,
-	});
-
-	return new Promise((resolve) => {
-		readline.question(`${message}\n> `, (answer: string) => {
-			readline.close();
-			// If the answer is empty (just pressed enter), treat it as approval
-			if (answer.trim() === "") {
-				resolve({ approved: true });
-			} else {
-				// Any non-empty response is treated as rejection with feedback
-				resolve({ approved: false, comment: answer });
-			}
-		});
-	});
 }
 
 async function labelLastEmailAsActions() {
@@ -280,6 +193,7 @@ async function labelLastEmailAsActions() {
 
 if (require.main === module) {
 	(async () => {
+        await agentops.init();
 		try {
 			await cliDumpEmails();
 			await labelLastEmailAsActions();

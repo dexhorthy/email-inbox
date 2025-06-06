@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import TurndownService from "turndown";
 import { b } from "../baml_client";
 
-const state = {
+export const state = {
 	// rules that will be updated by the agent via user
 	rules: `
 Mark as spam all emails that:

@@ -8,6 +8,8 @@
     },
     "dependencies": {
         "@boundaryml/baml": "latest",
+        "@humanlayer/sdk": "^0.7.9",
+        "agentops": "^0.1.0",
         "@types/turndown": "^5.0.5",
         "dotenv": "^16.5.0",
         "express": "^5.1.0",
