@@ -6,7 +6,7 @@ export const updateRules = async (
     proposedClassification: SpamResult,
     humanFeedback: string,
     existingRuleset: string
-): string => {
+): Promise<string> => {
     let attempt = 1
     while (attempt < 3) {
         const rulesUpdate = await b.UpdateRulesFromSpamResult(email, proposedClassification, humanFeedback, existingRuleset)
@@ -22,7 +22,6 @@ export const updateRules = async (
     }
 
     throw new Error(`Failed to update rules after 3 attempts`)
-
 }
 
 if (require.main === module) {
@@ -31,7 +30,12 @@ if (require.main === module) {
     console.log(state.rules)
     const result = await updateRules(
         "check out these dope memes",
-        { is_spam: true, spam_rules_matched: ["test"], spammy_qualities: [], high_confidence: false },
+        {
+            is_spam: true,
+            spam_rules_matched: ["memes are only good sometimes"],
+            spammy_qualities: ["memes"],
+            high_confidence: false,
+        },
         "memes are always good",
         `- memes are only good sometimes
          - emails with unsubscribe links are always spam

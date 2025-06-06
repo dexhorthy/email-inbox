@@ -40,10 +40,32 @@ export const checkWithHuman = async (input: CheckWithHumanInput): Promise<CheckW
             approved: true,
         }
     } else {
-        const updatedRuleset = await updateRules(input.from, input.subject, input.body, input.proposedClassification, input.existingRuleset)
+        const updatedRuleset = await updateRules(
+            input.body,
+            input.proposedClassification,
+            response.comment!,
+            input.existingRuleset,
+        )
         return {
             updatedRuleset,
             approved: false,
         }
+    }
+}
+
+if (require.main === module) {
+    const input: CheckWithHumanInput = {
+        from: "test@test.com",
+        subject: "check out these dope memes",
+        body: "check out these dope memes",
+        proposedClassification: {
+            is_spam: true,
+            spam_rules_matched: ["memes are only good sometimes"],
+            spammy_qualities: ["memes"],
+            high_confidence: false,
+        },
+        existingRuleset: `- memes are only good sometimes
+         - emails with unsubscribe links are always spam
+         `,
     }
 }
