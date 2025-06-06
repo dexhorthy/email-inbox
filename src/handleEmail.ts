@@ -74,7 +74,7 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 	}
 
 	const [text, html] = await Promise.all([
-		b.HtmlToMarkdown(body.html),
+		b.HtmlToMarkdown(body.text),
 		b.HtmlToMarkdown(body.html),
 	]);
 	body.text = text.markdown;
