@@ -36,28 +36,47 @@ oauth2Client.setCredentials({
 // Create Gmail API client
 const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
-export async function handleOneEmail(email: gmail_v1.Schema$Message) {
-	const headers = email.payload?.headers;
+export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
+	const email = await gmail.users.messages.get({
+		userId: "me",
+		id: emailInfo.id!,
+	});
+
+	const headers = email.data.payload?.headers;
 	const subject = headers?.find((h) => h.name === "Subject")?.value;
 	const from = headers?.find((h) => h.name === "From")?.value;
 	const date = headers?.find((h) => h.name === "Date")?.value;
 
-	// Extract email body
 	let body = "";
-	if (email.payload?.body?.data) {
-		body = Buffer.from(email.payload.body.data, "base64").toString();
-	} else if (email.payload?.parts) {
-		// Handle multipart messages
-		for (const part of email.payload.parts) {
-			if (part.mimeType === "text/plain" && part.body?.data) {
-				body = Buffer.from(part.body.data, "base64").toString();
-				break;
+	console.log(email.data.payload);
+	if (!email.data.payload) return;
+	for (const part of email.data.payload.parts || []) {
+		if (part.mimeType === "multipart/alternative") {
+			for (const p of part?.parts || []) {
+				if (p.mimeType === "text/plain" && p.body?.data) {
+					body = Buffer.from(p.body.data, "base64").toString();
+					console.log("found text/plain part", body);
+					break;
+				} else if (p.mimeType === "text/html" && p.body?.data) {
+					body = Buffer.from(p.body.data, "base64").toString();
+					console.log("found text/html part", body);
+					break;
+				}
 			}
+		} else {
+			console.log("found UNUSABLE part", part.mimeType);
 		}
 	}
 
+	const meta = `
+	Subject: ${subject}
+	From: ${from}
+	Date: ${date}
+	`;
+
 	// Combine snippet and body for spam analysis
-	const fullEmailContent = `${email.snippet || ""}\n\n${body}`;
+	const fullEmailContent = `${meta}\n\n${body}`;
+	console.log("fullEmailContent", fullEmailContent);
 	const isSpam = await b.IsSpam(fullEmailContent, state.rules);
 
 	console.log(`email with snippet ${email.snippet} is spam: ${isSpam.is_spam} because 
