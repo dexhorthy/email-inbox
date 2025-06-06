@@ -98,28 +98,26 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
         `);
 
 	// Decide if the email is spam
-	if (isSpam.is_spam) {
-		console.log("unclear on if email is spam or not, asking for clarification");
-		const { updatedRuleset, approved } = await checkWithHuman({
-			from: from ?? "Unknown Sender",
-			subject: subject ?? "Unknown Subject",
-			body: body.html.length > body.text.length ? body.html : body.text,
-			proposedClassification: isSpam,
-			existingRuleset: state.rules,
-		});
+	console.log("unclear on if email is spam or not, asking for clarification");
+	const { updatedRuleset, approved } = await checkWithHuman({
+		from: from ?? "Unknown Sender",
+		subject: subject ?? "Unknown Subject",
+		body: body.html.length > body.text.length ? body.html : body.text,
+		proposedClassification: isSpam,
+		existingRuleset: state.rules,
+	});
 
-		state.rules = updatedRuleset ?? state.rules;
+	state.rules = updatedRuleset ?? state.rules;
 
-		if (isSpam.is_spam && approved) {
-			// TODO push to spam
-			console.log("pushing to spam");
-			await labelEmail(emailInfo.id!, "SPAM");
-			return;
-		}
-
-		// Otherwise continue to classification
-		console.log("continuing to classification");
+	if (isSpam.is_spam && approved) {
+		// TODO push to spam
+		console.log("pushing to spam");
+		await labelEmail(emailInfo.id!, "SPAM");
+		return;
 	}
+
+	// Otherwise continue to classification
+	console.log("continuing to classification");
 
 	const classification = await b.Classify(
 		subject ?? "Unknown Subject",
