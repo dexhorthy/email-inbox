@@ -1,21 +1,20 @@
 import { b, SpamResult } from "@/baml_client";
-import { state } from "./parseEmail";
+import { state } from "./handleEmail";
 
 export const updateRules = async (
     email: string,
     proposedClassification: SpamResult,
     humanFeedback: string,
     existingRuleset: string
-) => {
+): string => {
     let attempt = 1
     while (attempt < 3) {
         const rulesUpdate = await b.UpdateRulesFromSpamResult(email, proposedClassification, humanFeedback, existingRuleset)
 
-        const rules = state.rules
+        const rules = existingRuleset
 
         if (rulesUpdate.old_string && rules.includes(rulesUpdate.old_string)) {
-            state.rules = rules.replace(rulesUpdate.old_string, rulesUpdate.new_string)
-            break
+            return rules.replace(rulesUpdate.old_string, rulesUpdate.new_string)
         } else {
             console.log(`Rule ${rulesUpdate.old_string} not found in ruleset, trying again`)
             attempt++
@@ -27,6 +26,9 @@ export const updateRules = async (
 }
 
 if (require.main === module) {
+    // test for update rules
+    console.log("existing ruleset:")
+    console.log(state.rules)
     const result = await updateRules(
         "check out these dope memes",
         { is_spam: true, spam_rules_matched: ["test"], spammy_qualities: [], high_confidence: false },
@@ -35,5 +37,8 @@ if (require.main === module) {
          - emails with unsubscribe links are always spam
          `,
     )
-    console.log(result)
+    console.log("updated ruleset:")
+    console.log(state.rules)
+
+
 }

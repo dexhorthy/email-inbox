@@ -1,5 +1,7 @@
 // cli.ts lets you invoke the agent loop from the command line
 
+import { agentops } from 'agentops';
+
 import chalk from "chalk";
 import dotenv from "dotenv";
 import fs from "fs/promises";
@@ -191,6 +193,7 @@ async function labelLastEmailAsActions() {
 
 if (require.main === module) {
 	(async () => {
+        await agentops.init();
 		try {
 			await cliDumpEmails();
 			await labelLastEmailAsActions();

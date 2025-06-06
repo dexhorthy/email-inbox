@@ -19,12 +19,11 @@ function UpdateRulesFromSpamResult(
 
         The rules will be given to a classifier agent in the future.
 
-
         Match the new rules to the style of the existing ruleset.
 
         {{ _.role('user') }}
-        This email was classified as spam by the existing ruleset, but there is human feedback
-        that explains why it was not spam.
+        This email was classified as {{ "spam" if proposed_classification.is_spam else "not spam" }} by the existing ruleset, but there is human feedback
+        that explains why it was {{ "not spam" if proposed_classification.is_spam else "spam" }}.
 
         <initial_email>
         {{ initial_email }}
