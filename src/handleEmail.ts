@@ -1,6 +1,7 @@
 import type { gmail_v1 } from "googleapis";
 import { google } from "googleapis";
 import fs from "node:fs/promises";
+import TurndownService from "turndown";
 import { b } from "../baml_client";
 
 const state = {
@@ -36,6 +37,8 @@ oauth2Client.setCredentials({
 // Create Gmail API client
 const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
+const turndownService = new TurndownService();
+
 export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 	const email = await gmail.users.messages.get({
 		userId: "me",
@@ -47,20 +50,21 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 	const from = headers?.find((h) => h.name === "From")?.value;
 	const date = headers?.find((h) => h.name === "Date")?.value;
 
-	let body = "";
+	const body = {
+		text: "",
+		html: "",
+	};
 	console.log(email.data.payload);
 	if (!email.data.payload) return;
 	for (const part of email.data.payload.parts || []) {
 		if (part.mimeType === "multipart/alternative") {
 			for (const p of part?.parts || []) {
 				if (p.mimeType === "text/plain" && p.body?.data) {
-					body = Buffer.from(p.body.data, "base64").toString();
-					console.log("found text/plain part", body);
-					break;
+					body.text = Buffer.from(p.body.data, "base64").toString();
+					console.log("found text/plain part", body.text);
 				} else if (p.mimeType === "text/html" && p.body?.data) {
-					body = Buffer.from(p.body.data, "base64").toString();
-					console.log("found text/html part", body);
-					break;
+					body.html = Buffer.from(p.body.data, "base64").toString();
+					console.log("found text/html part", body.html);
 				}
 			}
 		} else {
@@ -68,18 +72,24 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 		}
 	}
 
-	const meta = `
+	const [text, html] = await Promise.all([
+		b.HtmlToMarkdown(body.html),
+		b.HtmlToMarkdown(body.html),
+	]);
+	body.text = text.markdown;
+	body.html = html.markdown;
+
+	const envelope = `
 	Subject: ${subject}
 	From: ${from}
 	Date: ${date}
 	`;
 
 	// Combine snippet and body for spam analysis
-	const fullEmailContent = `${meta}\n\n${body}`;
-	console.log("fullEmailContent", fullEmailContent);
-	const isSpam = await b.IsSpam(fullEmailContent, state.rules);
+	console.log("fullEmailContent", envelope, body.html, body.text);
+	const isSpam = await b.IsSpam(envelope, body.html, body.text, state.rules);
 
-	console.log(`email with snippet ${email.snippet} is spam: ${isSpam.is_spam} because 
+	console.log(`email is spam: ${isSpam.is_spam} because 
 
         reasons: ${isSpam.spam_rules_matched.join(", ")}
         
@@ -88,7 +98,7 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 
 	if (isSpam.is_spam && isSpam.high_confidence) {
 		console.log("Labeling email as SPAM");
-		await labelEmail(email.id!, "SPAM");
+		//await labelEmail(email.id!, "SPAM");
 	} else if (!isSpam.is_spam && isSpam.high_confidence) {
 		console.log(
 			"High confidence that email is not spam; proceeding to classification",
