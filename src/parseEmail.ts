@@ -29,5 +29,14 @@ async function parseOneEmail(email: gmail_v1.Schema$Message) {
         }
     }
 
-    const isSpam = await b.IsSpam(email.snippet || '', state.rules, body);
+    // Combine snippet and body for spam analysis
+    const fullEmailContent = `${email.snippet || ''}\n\n${body}`;
+    const isSpam = await b.IsSpam(fullEmailContent, state.rules);
+
+    console.log(`email with snippet ${email.snippet} is spam: ${isSpam.is_spam} because 
+
+        reasons: ${isSpam.spam_rules_matched.join(', ')}
+        
+        qualities: ${isSpam.spammy_qualities.join(', ')}
+        `)
 }
