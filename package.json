@@ -10,12 +10,14 @@
         "@boundaryml/baml": "latest",
         "@humanlayer/sdk": "^0.7.9",
         "agentops": "^0.1.0",
+        "@types/turndown": "^5.0.5",
         "dotenv": "^16.5.0",
         "express": "^5.1.0",
         "googleapis": "^150.0.1",
         "humanlayer": "^0.7.7",
         "open": "^10.1.2",
         "tsx": "^4.15.0",
+        "turndown": "^7.2.0",
         "typescript": "^5.0.0"
     },
     "devDependencies": {

@@ -5,7 +5,7 @@ class SpamResult {
     high_confidence bool
 }
 
-function IsSpam(email: string, extra_rules: string) -> SpamResult {
+function IsSpam(envelope: string, html_content: string, text_content: string, extra_rules: string) -> SpamResult {
     client "openai/gpt-4o"
     prompt #"
     is the email spam?
@@ -17,7 +17,15 @@ function IsSpam(email: string, extra_rules: string) -> SpamResult {
 
     {{ _.role('user') }}
 
-    {{ email }}
+    <envelope>
+    {{ envelope }}
+    </envelope>
+    <html_content>
+    {{ html_content }}
+    </html_content>
+    <text_content>
+    {{ text_content }}
+    </text_content>
 
     {{ctx.output_format}}
     "#
