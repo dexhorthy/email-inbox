@@ -3,6 +3,7 @@ import { google } from "googleapis";
 import fs from "node:fs/promises";
 import TurndownService from "turndown";
 import { b } from "../baml_client";
+import { checkWithHuman } from "./checkWithHuman";
 
 export const state = {
 	// rules that will be updated by the agent via user
@@ -106,6 +107,13 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 		// TODO
 	} else {
 		console.log("unclear on if email is spam or not, asking for clarification");
+		const { updatedRuleset, approved } = await checkWithHuman({
+			from: from ?? "Unknown Sender",
+			subject: subject ?? "Unknown Subject",
+			body: body.html.length > body.text.length ? body.html : body.text,
+			proposedClassification: isSpam,
+			existingRuleset: state.rules,
+		});
 		// TODO
 	}
 }
