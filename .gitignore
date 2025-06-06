@@ -3,3 +3,4 @@ node_modules/
 .threads/
 gmail_token.json
 gmail_creds.json
+.env
