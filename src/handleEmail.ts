@@ -11,7 +11,11 @@ import {
   getCurrentRulesVersion,
   getModelVersion,
 } from "./datasets"
-import { parseEmailBody } from "./emailParser"
+import {
+  convertToMarkdown,
+  createGmailClient,
+  parseEmailBody,
+} from "./emailParser"
 
 // Interfaces for dependency injection
 export interface EmailFetcher {
@@ -145,24 +149,7 @@ export async function saveRules(rules: string): Promise<void> {
 // Initialize rules
 let rules = await loadRules()
 
-const tokenContent = await fs.readFile("gmail_token.json", "utf-8")
-const credentials = JSON.parse(tokenContent)
-
-// Create OAuth2 client
-const oauth2Client = new google.auth.OAuth2(
-  credentials.client_id,
-  credentials.client_secret,
-  credentials.redirect_uri,
-)
-
-// Set credentials
-oauth2Client.setCredentials({
-  access_token: credentials.access_token,
-  refresh_token: credentials.refresh_token,
-})
-
-// Create Gmail API client
-const gmail = google.gmail({ version: "v1", auth: oauth2Client })
+const gmail = await createGmailClient()
 
 const datasetManager = new DatasetManager()
 
@@ -229,12 +216,9 @@ export async function handleEmailWithDependencies(
   // Use the tested email parser
   const body = parseEmailBody(email.data.payload)
 
-  const [text, html] = await Promise.all([
-    b.HtmlToMarkdown(body.text),
-    b.HtmlToMarkdown(body.html),
-  ])
-  body.text = text.markdown
-  body.html = html.markdown
+  const markdownContent = await convertToMarkdown(body.text, body.html)
+  body.text = markdownContent.text
+  body.html = markdownContent.html
 
   // Update dataset with content
   emailData.content = {
@@ -336,6 +320,11 @@ export async function handleEmailWithDependencies(
   console.log("\n📌 Classification Result")
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
   switch (classification.classification.classification) {
+    case "execute_code":
+      // todo switch to coding agent
+      console.log("🔍 Executing code...")
+      console.log("SKIPPING")
+      break
     case "read_today":
       if (isTestMode) {
         console.log("📌 Final Decision: READ TODAY")

@@ -27,9 +27,21 @@ class TryUnsubscribe {
     unsubscribe_button_url string? @description("The url of the unsubscribe button")
 }
 
+class ClassificationExecuteCode {
+    classification "execute_code" @description("choose this if you need to execute custom code to process the email")
+    instructions string @description(#"
+        detailed markdown instructions for the coding agent to execute, 
+        including all context from the email, rules being triggered, examples, and any other relevant information
+
+        the coding agent will have access to various env vars and secrets and can integrate with external services 
+        like google calendar, resend, etc
+    "#)
+}
+
+
 class Classification {
     relevant_rules string[] @description("exact verbatims of one or more rules that were used to classify the email")
-    classification ReadToday | ReadLater | NotifyHumanImmediately | DraftReply | TryUnsubscribe
+    classification ReadToday | ReadLater | NotifyHumanImmediately | DraftReply | TryUnsubscribe | ClassificationExecuteCode
 }
 
 
@@ -43,6 +55,12 @@ function Classify(subject: string, from: string, body: string, ruleset: string) 
     <ruleset>
     {{ ruleset }}
     </ruleset>
+
+    for code execution, you have access to the following env vars:
+
+    <available_env_vars>
+    {{ available_env_vars | join("\n") }}
+    </available_env_vars>
 
     {{ _.role('user') }}
 
@@ -163,4 +181,35 @@ test ClassifiesReadToday {
         "#
     }
     @@assert(classification, {{this.classification.classification == "read_today"}})
+}
+
+test ClassifiesMakeCalEvent {
+    functions [Classify]
+    args {
+        subject "Re: Meeting request for project discussion"
+        from "colleague@company.com"
+        body #"Great, I'm good to go for thursday at 2pm.
+
+        From: John Doe <john.doe@company.com>
+        To: Colleague <colleague@company.com>
+        Subject: Meeting request for project discussion
+
+        Are we still on to discuss the launch for next monday?
+
+        I think we have lunch scheduled thursday at 2pm, but 
+        we could use that time to discuss the launch instead if you wanna order
+        in and grab a whiteboard.
+
+        "#
+        ruleset #"
+            - Authentication codes should be shown immediately
+            - Newsletters are low priority
+            - Meeting requests should be replied to automatically with calendar link cal.com/1234567890
+            - if a meeting is CONFIRMED, you should make/modify a calendar event rather than sending the calendar link 
+            - You should draft replies for meeting requests
+            - Security alerts should be shown immediately
+            - You should show the user the message immediately
+            - Work-related emails with deadlines are high priority  
+        "#
+    }
 }

@@ -6,8 +6,12 @@ import { agentops } from "agentops"
 import { Command } from "commander"
 import dotenv from "dotenv"
 import type { gmail_v1 } from "googleapis"
-import { google } from "googleapis"
 import { DatasetManager } from "./datasets"
+import {
+  createGmailClient,
+  extractHeaders,
+  parseEmailBody,
+} from "./emailParser"
 import {
   type EmailFetcher,
   LastEmailFetcher,
@@ -42,54 +46,9 @@ interface GmailHeader {
   value: string
 }
 
-function getEmailBody(parts: gmail_v1.Schema$MessagePart[] | undefined): {
-  plain?: string
-  html?: string
-} {
-  if (!parts) return {}
-
-  const body: { plain?: string; html?: string } = {}
-
-  for (const part of parts) {
-    if (part.mimeType === "text/plain" && part.body?.data) {
-      body.plain = Buffer.from(part.body.data, "base64").toString("utf-8")
-    } else if (part.mimeType === "text/html" && part.body?.data) {
-      body.html = Buffer.from(part.body.data, "base64").toString("utf-8")
-    }
-
-    // Recursively check nested parts
-    if (part.parts) {
-      const nestedBody = getEmailBody(part.parts)
-      if (nestedBody.plain) body.plain = nestedBody.plain
-      if (nestedBody.html) body.html = nestedBody.html
-    }
-  }
-
-  return body
-}
-
 export async function cliDumpEmailsToFiles(numRecords = 10) {
   try {
-    // Read the token file
-    const tokenPath = path.join(process.cwd(), "gmail_token.json")
-    const tokenContent = await fs.readFile(tokenPath, "utf-8")
-    const credentials = JSON.parse(tokenContent)
-
-    // Create OAuth2 client
-    const oauth2Client = new google.auth.OAuth2(
-      credentials.client_id,
-      credentials.client_secret,
-      credentials.redirect_uri,
-    )
-
-    // Set credentials
-    oauth2Client.setCredentials({
-      access_token: credentials.access_token,
-      refresh_token: credentials.refresh_token,
-    })
-
-    // Create Gmail API client
-    const gmail = google.gmail({ version: "v1", auth: oauth2Client })
+    const gmail = await createGmailClient()
 
     // Get emails with specified limit
     const response = await gmail.users.messages.list({
@@ -112,11 +71,9 @@ export async function cliDumpEmailsToFiles(numRecords = 10) {
         format: "full", // Get the full message including body
       })
 
-      const headers = email.data.payload?.headers as GmailHeader[] | undefined
-      const subject =
-        headers?.find((h) => h.name === "Subject")?.value || "No Subject"
-      const from =
-        headers?.find((h) => h.name === "From")?.value || "Unknown Sender"
+      const headers = extractHeaders(email.data.payload!)
+      const subject = headers.subject || "No Subject"
+      const from = headers.from || "Unknown Sender"
 
       console.log(`📝 Subject: ${subject}`)
       console.log(`👤 From: ${from}`)
@@ -148,26 +105,7 @@ export async function cliDumpEmails(numRecords = 5) {
     const runId = await datasetManager.startNewRun()
     console.log(`🗂️ Started dataset collection run: ${runId}`)
 
-    // Read the token file
-    const tokenPath = path.join(process.cwd(), "gmail_token.json")
-    const tokenContent = await fs.readFile(tokenPath, "utf-8")
-    const credentials = JSON.parse(tokenContent)
-
-    // Create OAuth2 client
-    const oauth2Client = new google.auth.OAuth2(
-      credentials.client_id,
-      credentials.client_secret,
-      credentials.redirect_uri,
-    )
-
-    // Set credentials
-    oauth2Client.setCredentials({
-      access_token: credentials.access_token,
-      refresh_token: credentials.refresh_token,
-    })
-
-    // Create Gmail API client
-    const gmail = google.gmail({ version: "v1", auth: oauth2Client })
+    const gmail = await createGmailClient()
 
     // Get emails with specified limit
     const response = await gmail.users.messages.list({
@@ -186,16 +124,13 @@ export async function cliDumpEmails(numRecords = 5) {
           format: "full", // Get the full message including body
         })
 
-        const headers = email.data.payload?.headers as GmailHeader[] | undefined
-        const subject =
-          headers?.find((h) => h.name === "Subject")?.value || "No Subject"
-        const from =
-          headers?.find((h) => h.name === "From")?.value || "Unknown Sender"
-        const date =
-          headers?.find((h) => h.name === "Date")?.value || "Unknown Date"
+        const headers = extractHeaders(email.data.payload!)
+        const subject = headers.subject || "No Subject"
+        const from = headers.from || "Unknown Sender"
+        const date = headers.date || "Unknown Date"
 
         // Get the email body
-        const body = getEmailBody(email.data.payload?.parts)
+        const body = parseEmailBody(email.data.payload!)
 
         return {
           id: message.id!,
@@ -203,7 +138,10 @@ export async function cliDumpEmails(numRecords = 5) {
           from,
           date,
           snippet: email.data.snippet,
-          body,
+          body: {
+            plain: body.text,
+            html: body.html,
+          },
         } as EmailMessage
       }),
     )
@@ -227,55 +165,6 @@ export async function cliDumpEmails(numRecords = 5) {
     }
   } catch (error) {
     console.error("Error fetching emails:", error)
-    throw error
-  }
-}
-
-async function labelLastEmailAsActions() {
-  try {
-    // Read the token file
-    const tokenPath = path.join(process.cwd(), "gmail_token.json")
-    const tokenContent = await fs.readFile(tokenPath, "utf-8")
-    const credentials = JSON.parse(tokenContent)
-
-    // Create OAuth2 client
-    const oauth2Client = new google.auth.OAuth2(
-      credentials.client_id,
-      credentials.client_secret,
-      credentials.redirect_uri,
-    )
-
-    // Set credentials
-    oauth2Client.setCredentials({
-      access_token: credentials.access_token,
-      refresh_token: credentials.refresh_token,
-    })
-
-    // Create Gmail API client
-    const gmail = google.gmail({ version: "v1", auth: oauth2Client })
-
-    // Get the most recent email
-    const response = await gmail.users.messages.list({
-      userId: "me",
-      maxResults: 1,
-      q: "in:inbox", // Only search in inbox
-    })
-
-    const messages = response.data.messages
-    if (!messages || messages.length === 0) {
-      console.log("No emails found in inbox")
-      return
-    }
-
-    const messageId = messages[0].id!
-
-    console.log("handling messages!")
-    for (const message of messages) {
-      await handleOneEmail(message)
-    }
-    console.log("done handling messages")
-  } catch (error) {
-    console.error("Error labeling email:", error)
     throw error
   }
 }
@@ -338,26 +227,7 @@ if (require.main === module) {
       }
 
       try {
-        // Read the token file
-        const tokenPath = path.join(process.cwd(), "gmail_token.json")
-        const tokenContent = await fs.readFile(tokenPath, "utf-8")
-        const credentials = JSON.parse(tokenContent)
-
-        // Create OAuth2 client
-        const oauth2Client = new google.auth.OAuth2(
-          credentials.client_id,
-          credentials.client_secret,
-          credentials.redirect_uri,
-        )
-
-        // Set credentials
-        oauth2Client.setCredentials({
-          access_token: credentials.access_token,
-          refresh_token: credentials.refresh_token,
-        })
-
-        // Create Gmail API client
-        const gmail = google.gmail({ version: "v1", auth: oauth2Client })
+        const gmail = await createGmailClient()
 
         const datasetManager = new DatasetManager()
 

@@ -6,31 +6,13 @@
 
 import fs from "node:fs/promises"
 import path from "node:path"
-import { google } from "googleapis"
+import { createGmailClient, extractHeaders } from "../emailParser"
 
 async function fetchTestEmails() {
   console.log("🔍 Fetching last 5 Gmail message IDs for E2E testing...")
 
   try {
-    // Read Gmail credentials
-    const tokenContent = await fs.readFile("gmail_token.json", "utf-8")
-    const credentials = JSON.parse(tokenContent)
-
-    // Create OAuth2 client
-    const oauth2Client = new google.auth.OAuth2(
-      credentials.client_id,
-      credentials.client_secret,
-      credentials.redirect_uri,
-    )
-
-    // Set credentials
-    oauth2Client.setCredentials({
-      access_token: credentials.access_token,
-      refresh_token: credentials.refresh_token,
-    })
-
-    // Create Gmail API client
-    const gmail = google.gmail({ version: "v1", auth: oauth2Client })
+    const gmail = await createGmailClient()
 
     // Fetch the last 5 messages
     console.log("📧 Fetching messages from Gmail...")
@@ -62,13 +44,10 @@ async function fetchTestEmails() {
           metadataHeaders: ["Subject", "From", "Date"],
         })
 
-        const headers = email.data.payload?.headers || []
-        const subject =
-          headers.find((h) => h.name === "Subject")?.value || "No Subject"
-        const from =
-          headers.find((h) => h.name === "From")?.value || "Unknown Sender"
-        const date =
-          headers.find((h) => h.name === "Date")?.value || "Unknown Date"
+        const headers = extractHeaders(email.data.payload!)
+        const subject = headers.subject || "No Subject"
+        const from = headers.from || "Unknown Sender"
+        const date = headers.date || "Unknown Date"
 
         messageInfo.push({
           id: messageId,
