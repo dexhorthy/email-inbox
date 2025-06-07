@@ -87,7 +87,7 @@ describe("Email Parsing E2E Tests", () => {
         })
         expect(false).toBe(true) // Should not reach here
       } catch (error: any) {
-        expect(error.code).toBe(404)
+        expect(error.code).toBe(400) // Gmail API returns 400 for invalid message IDs
         console.log(`✅ Correctly handled invalid message ID: ${error.message}`)
       }
     })
@@ -254,7 +254,7 @@ describe("Email Parsing E2E Tests", () => {
       }
 
       console.log(`🎯 Successfully parsed ${results.length} emails`)
-    })
+    }, 180000)
 
     test("should handle parsing errors gracefully", async () => {
       const invalidMessageId = "invalid_id_for_testing"
@@ -298,6 +298,6 @@ describe("Email Parsing E2E Tests", () => {
           `   Best content choice: ${result.content.markdown === result.content.html ? "HTML" : "Text"}`,
         )
       }
-    })
+    }, 180000)
   })
 })

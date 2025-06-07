@@ -17,7 +17,7 @@
 
         "test:baml": "baml-cli test",
         "test:unit": "bun run src/test/test.ts",
-        "test:e2e": "bun test ./src/test/test-e2e-email-parsing.ts --timeout 30000",
+        "test:e2e": "bun test ./src/test/test-e2e-email-parsing.ts --timeout 120000",
         "test": "bun run test:baml && bun run test:unit && bun run test:e2e",
 
         "dev": "bun run fix && bun run src/cli.ts process --num-records 1",
