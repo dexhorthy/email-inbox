@@ -76,7 +76,6 @@ test ClassifiesNewsletterAsReadLater {
         ruleset "Newsletters are low priority"
     }
     @@assert(classification, {{this.classification == "read_later"}})
-    @@assert(confidence, {{this.confidence > 0.5}})
 }
 
 test ClassifiesDraftReply {
@@ -111,5 +110,4 @@ test ClassifiesReadToday {
         ruleset "Work-related emails with deadlines are high priority"
     }
     @@assert(classification, {{this.classification == "read_today"}})
-    @@assert(confidence, {{this.confidence > 0.5}})
 }

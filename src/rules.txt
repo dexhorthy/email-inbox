@@ -1,5 +1,5 @@
 Mark as spam all emails that:
-- are a cold outreach email
+- are a cold outreach email, including promotional messages sent without prior consent or relationship
 - are a sales/marketing email e.g. for an e-commerce site, unless they focus primarily on sharing community content or trending topics like memes, and do not aggressively push direct sales or have a clear call to upgrade for access or payment. 
 
 do NOT mark as spam emails that:
