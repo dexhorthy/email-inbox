@@ -121,8 +121,7 @@ async function agentLoop(thread: Thread, rules: string, envVars: EnvVarStore, co
         // todo - contact human for env var
         return thread;
       case "execute_code":
-        const result = await handleNextStep(nextStep, codeExecutor, thread)
-        return thread;
+        thread = await handleNextStep(nextStep, codeExecutor, thread)
     }
   }
 }
