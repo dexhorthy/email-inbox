@@ -5,3 +5,4 @@ datasets/
 gmail_token.json
 gmail_creds.json
 .env
+tsconfig.tsbuildinfo

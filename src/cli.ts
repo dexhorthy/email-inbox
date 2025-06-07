@@ -1,14 +1,14 @@
 // cli.ts lets you invoke the agent loop from the command line
 
+import fs from "node:fs/promises";
+import path from "node:path";
 import { agentops } from "agentops";
 import { Command } from "commander";
 import dotenv from "dotenv";
-import fs from "fs/promises";
 import type { gmail_v1 } from "googleapis";
 import { google } from "googleapis";
-import path from "path";
-import { handleOneEmail } from "./handleEmail";
 import { DatasetManager } from "./datasets";
+import { handleOneEmail } from "./handleEmail";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -56,7 +56,7 @@ function getEmailBody(parts: gmail_v1.Schema$MessagePart[] | undefined): {
 	return body;
 }
 
-export async function cliDumpEmails(numRecords: number = 5) {
+export async function cliDumpEmails(numRecords = 5) {
 	try {
 		// Start a new dataset run
 		const datasetManager = new DatasetManager();
@@ -199,22 +199,22 @@ async function labelLastEmailAsActions() {
 
 if (require.main === module) {
 	const program = new Command();
-	
-	program
-		.name('email-inbox')
-		.description('CLI to process and classify emails')
-		.version('1.0.0');
 
 	program
-		.command('process')
-		.description('Process emails from Gmail inbox')
-		.option('-n, --num-records <number>', 'Number of emails to process', '5')
+		.name("email-inbox")
+		.description("CLI to process and classify emails")
+		.version("1.0.0");
+
+	program
+		.command("process")
+		.description("Process emails from Gmail inbox")
+		.option("-n, --num-records <number>", "Number of emails to process", "5")
 		.action(async (options) => {
 			await agentops.init();
 			try {
-				const numRecords = parseInt(options.numRecords, 10);
-				if (isNaN(numRecords) || numRecords < 1) {
-					console.error('❌ Number of records must be a positive integer');
+				const numRecords = Number.parseInt(options.numRecords, 10);
+				if (Number.isNaN(numRecords) || numRecords < 1) {
+					console.error("❌ Number of records must be a positive integer");
 					process.exit(1);
 				}
 				await cliDumpEmails(numRecords);

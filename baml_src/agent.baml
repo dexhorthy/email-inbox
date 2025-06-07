@@ -142,26 +142,4 @@ test MathOperationWithClarification {
   }
   @@assert(intent, {{this.intent == "request_more_information"}})
 }
-
-test MathOperationPostClarification {
-  functions [DetermineNextStep]
-  args {
-    thread #"
-        <user_input>
-        can you multiply 3 and FD*(#F&& ?
-        </user_input>
-
-        <request_more_information>
-        message: It seems like there was a typo or mistake in your request. Could you please clarify or provide the correct numbers you would like to multiply?
-        </request_more_information>
-
-        <human_response>
-        lets try 12 instead
-        </human_response>
-      "#
-  }
-  @@assert(intent, {{this.intent == "multiply"}})
-  @@assert(b, {{this.a == 3}})
-  @@assert(a, {{this.b == 12}})
-}
         

@@ -3,18 +3,27 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
-        "dev": "bun run src/cli.ts",
-        "check:fix": "biome check src/ --write",
-        "check": "tsc --noEmit && biome check src/",
-        "build": "bun run check:fix && bun run baml:generate",
-        "test": "bun run baml:test && bun run test.ts",
-        "test:e2e": "bun run test-e2e.ts",
+
         "baml:generate": "baml-cli generate",
-        "baml:test": "baml-cli test",
-        "githooks": "echo 'bun run check && bun run test' > .git/hooks/pre-push && chmod +x .git/hooks/pre-push",
-        "fmt:fix": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\"",
-        "fmt": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json}\"",
-        "fix": "bun run fmt:fix && bun run check:fix"
+
+        "typecheck": "tsc --noEmit",
+
+        "lint:fix": "biome check src/ --write",
+        "lint": "biome check src/",
+
+        "fix": "bun run baml:generate && bun run lint:fix",
+        "check": "bun run baml:generate && bun run typecheck && bun run lint",
+
+        "test:baml": "baml-cli test",
+        "test:unit": "bun run src/test/test.ts",
+        "test:e2e": "bun run src/test/test-e2e.ts",
+        "test": "bun run test:baml && bun run test:unit && bun run test:e2e",
+
+        "dev": "bun run fix && bun run src/cli.ts",
+
+        "githooks": "echo 'bun run pre-push' > .git/hooks/pre-push && chmod +x .git/hooks/pre-push",
+
+        "pre-push": "bun run check && bun run test"
     },
     "dependencies": {
         "@boundaryml/baml": "latest",

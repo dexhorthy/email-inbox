@@ -72,18 +72,17 @@ Please review this classification.
 		return {
 			approved: true,
 		};
-	} else {
-		const updatedRuleset = await updateRules(
-			input.body,
-			input.proposedClassification,
-			call.status.response!,
-			input.existingRuleset,
-		);
-		return {
-			updatedRuleset,
-			approved: false,
-		};
 	}
+	const updatedRuleset = await updateRules(
+		input.body,
+		input.proposedClassification,
+		call.status.response!,
+		input.existingRuleset,
+	);
+	return {
+		updatedRuleset,
+		approved: false,
+	};
 };
 
 if (require.main === module) {
