@@ -1,19 +1,17 @@
 // cli.ts lets you invoke the agent loop from the command line
 
 import { agentops } from "agentops";
-
+import { Command } from "commander";
 import dotenv from "dotenv";
 import fs from "fs/promises";
 import type { gmail_v1 } from "googleapis";
 import { google } from "googleapis";
 import path from "path";
 import { handleOneEmail } from "./handleEmail";
-import { FileSystemThreadStore } from "./state";
+import { DatasetManager } from "./datasets";
 
 // Load environment variables from .env file
 dotenv.config();
-
-const threadStore = new FileSystemThreadStore();
 
 interface EmailMessage {
 	id: string;
@@ -58,8 +56,13 @@ function getEmailBody(parts: gmail_v1.Schema$MessagePart[] | undefined): {
 	return body;
 }
 
-export async function cliDumpEmails() {
+export async function cliDumpEmails(numRecords: number = 5) {
 	try {
+		// Start a new dataset run
+		const datasetManager = new DatasetManager();
+		const runId = await datasetManager.startNewRun();
+		console.log(`🗂️ Started dataset collection run: ${runId}`);
+
 		// Read the token file
 		const tokenPath = path.join(process.cwd(), "gmail_token.json");
 		const tokenContent = await fs.readFile(tokenPath, "utf-8");
@@ -81,10 +84,10 @@ export async function cliDumpEmails() {
 		// Create Gmail API client
 		const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
-		// Get the last 50 emails
+		// Get emails with specified limit
 		const response = await gmail.users.messages.list({
 			userId: "me",
-			maxResults: 5,
+			maxResults: numRecords,
 		});
 
 		const messages = response.data.messages || [];
@@ -195,13 +198,31 @@ async function labelLastEmailAsActions() {
 }
 
 if (require.main === module) {
-	(async () => {
-		await agentops.init();
-		try {
-			await cliDumpEmails();
-		} catch (error) {
-			console.error("Error:", error);
-			process.exit(1);
-		}
-	})();
+	const program = new Command();
+	
+	program
+		.name('email-inbox')
+		.description('CLI to process and classify emails')
+		.version('1.0.0');
+
+	program
+		.command('process')
+		.description('Process emails from Gmail inbox')
+		.option('-n, --num-records <number>', 'Number of emails to process', '5')
+		.action(async (options) => {
+			await agentops.init();
+			try {
+				const numRecords = parseInt(options.numRecords, 10);
+				if (isNaN(numRecords) || numRecords < 1) {
+					console.error('❌ Number of records must be a positive integer');
+					process.exit(1);
+				}
+				await cliDumpEmails(numRecords);
+			} catch (error) {
+				console.error("Error:", error);
+				process.exit(1);
+			}
+		});
+
+	program.parse();
 }

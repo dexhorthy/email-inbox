@@ -1,8 +1,4 @@
-class MarkdownResult {
-    markdown string
-}
-
-function HtmlToMarkdown(html: string) -> MarkdownResult {
+function HtmlToMarkdown(html: string) -> string {
     client "openai/gpt-4o"
     prompt #"
     convert the following html to markdown

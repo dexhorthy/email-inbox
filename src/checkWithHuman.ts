@@ -25,7 +25,7 @@ export const checkWithHuman = async (
 	const hl = humanlayer();
 	let call = await hl.createHumanContact({
 		spec: {
-            msg: `
+			msg: `
 📧 Email Review Request
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 From: ${input.from}
@@ -35,20 +35,20 @@ Preview:
 > ${input.body.slice(0, 100)}...
 
 Classification: ${input.proposedClassification.is_spam ? "🚫 Spam" : "✅ Not Spam"}
-${input.proposedClassification.spam_rules_matched.length > 0 ? '\nMatched Rules:' : ''}
-${input.proposedClassification.spam_rules_matched.map(rule => `• ${rule}`).join("\n")}
+${input.proposedClassification.spam_rules_matched.length > 0 ? "\nMatched Rules:" : ""}
+${input.proposedClassification.spam_rules_matched.map((rule) => `• ${rule}`).join("\n")}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Please review this classification.
             `,
 			response_options: [
-                {
-                    name: "spam"
-                },
-                {
-                    name: "not spam"
-                }
-            ],
+				{
+					name: "spam",
+				},
+				{
+					name: "not spam",
+				},
+			],
 			channel: {
 				slack: {
 					channel_or_user_id: "",
@@ -58,16 +58,17 @@ Please review this classification.
 		},
 	});
 
+	while (!call.status?.response) {
+		await new Promise((resolve) => setTimeout(resolve, 3000));
+		call = await hl.getHumanContact(call.call_id);
+	}
 
-    while (!call.status?.response) {
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        call = await hl.getHumanContact(call.call_id);
-    }
-
-
-	if (input.proposedClassification.is_spam && call.status.response_option_name === "spam" ||
-        !input.proposedClassification.is_spam && call.status.response_option_name === "not spam"
-    ) {
+	if (
+		(input.proposedClassification.is_spam &&
+			call.status.response_option_name === "spam") ||
+		(!input.proposedClassification.is_spam &&
+			call.status.response_option_name === "not spam")
+	) {
 		return {
 			approved: true,
 		};

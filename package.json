@@ -3,29 +3,38 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
-        "dev": "tsx src/index.ts",
-        "build": "tsc"
+        "dev": "bun run src/cli.ts",
+        "check:fix": "biome check src/ --write",
+        "check": "tsc --noEmit && biome check src/",
+        "build": "bun run check:fix && bun run baml:generate",
+        "test": "bun run baml:test && bun run test.ts",
+        "test:e2e": "bun run test-e2e.ts",
+        "baml:generate": "baml-cli generate",
+        "baml:test": "baml-cli test",
+        "githooks": "echo 'bun run check && bun run test' > .git/hooks/pre-push && chmod +x .git/hooks/pre-push"
     },
     "dependencies": {
         "@boundaryml/baml": "latest",
-        "@humanlayer/sdk": "^0.7.9",
-        "@types/turndown": "^5.0.5",
-        "agentops": "^0.1.0",
-        "dotenv": "^16.5.0",
-        "express": "^5.1.0",
-        "googleapis": "^150.0.1",
-        "humanlayer": "^0.7.7",
-        "open": "^10.1.2",
-        "tsx": "^4.15.0",
-        "turndown": "^7.2.0",
-        "typescript": "^5.0.0"
+        "@humanlayer/sdk": "latest",
+        "@types/turndown": "latest",
+        "agentops": "latest",
+        "commander": "^14.0.0",
+        "dotenv": "latest",
+        "express": "latest",
+        "googleapis": "latest",
+        "humanlayer": "latest",
+        "open": "latest",
+        "tsx": "latest",
+        "turndown": "latest",
+        "typescript": "latest"
     },
     "devDependencies": {
-        "@types/express": "^5.0.1",
-        "@types/node": "^20.0.0",
-        "@typescript-eslint/eslint-plugin": "^6.0.0",
-        "@typescript-eslint/parser": "^6.0.0",
-        "eslint": "^8.0.0",
-        "supertest": "^7.1.0"
+        "@biomejs/biome": "latest",
+        "@types/express": "latest",
+        "@types/node": "latest",
+        "@typescript-eslint/eslint-plugin": "latest",
+        "@typescript-eslint/parser": "latest",
+        "eslint": "latest",
+        "supertest": "latest"
     }
 }

@@ -29,5 +29,5 @@ export async function getDraftFeedback(
 			},
 		},
 	});
-	return response;
+	return response.approved ?? false;
 }

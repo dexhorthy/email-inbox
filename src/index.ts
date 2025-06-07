@@ -1,7 +1,7 @@
-import { cli } from "./cli"
+import { cliDumpEmails } from "./cli";
 
 async function main() {
-    await cli()
+	await cliDumpEmails();
 }
 
-main().catch(console.error)
+main().catch(console.error);
