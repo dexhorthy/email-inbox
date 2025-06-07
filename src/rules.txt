@@ -1,8 +1,11 @@
 Mark as spam all emails that:
-- are a cold outreach email
-- are a sales/marketing email e.g. for an e-commerce site. 
+- contain only or predominantly random characters, nonsensical strings, or appear to be gibberish
+- are very short, either a single word or a few words, without meaningful context or intent
+- are a cold outreach email or promotional message, including those sent without prior consent, regardless of an existing relationship
+- are a sales/marketing email e.g. for an e-commerce site, unless they focus primarily on sharing community content or trending topics like memes, and do not aggressively push direct sales or have a clear call to upgrade for access or payment.
+- contain single-character or extremely short and vague messages that do not provide sufficient context or value, which may indicate phishing or spam attempts 
 
 do NOT mark as spam emails that:
-- pertain to event notifications
+- pertain to event notifications, unless they are error alerts or system-generated error messages from automated services; mark error alerts and system-generated error messages from automated services as spam, except those from trusted monitoring services like Sentry
 - contain an authentication/authorization code e.g. for 2FA
 - contain a "magic link" to sign in or similar. 
