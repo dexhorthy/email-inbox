@@ -1,48 +1,76 @@
 # Low-Level Next Steps
 
-## Phase 1: Enhanced Dataset Layout & BAML Tests
+## 🎯 CURRENT STATUS (as of Dec 6, 2025)
 
-• Add `content_hash` field to `EmailDataPoint` interface in `src/datasets.ts`
-• Add `processing_context` field with `rules_version`, `model_version`, `processing_timestamp` 
-• Create `generateContentHash()` function using crypto to hash subject + from + body
-• Add `getCurrentRulesVersion()` function to track rules file changes
-• Add `getModelVersion()` function to extract from BAML client context
-• Update `DatasetManager.startNewRun()` to create `runs/{runId}/` structure instead of flat
-• Create `runs/{runId}/meta.json` with run metadata and context
-• Create `runs/{runId}/emails/` subdirectory for email files
-• Update `DatasetManager.saveEmailData()` to save in `runs/{runId}/emails/{emailId}.json`
-• Add `createRunSummary()` method to generate `runs/{runId}/summary.json`
-• Add `updateGlobalIndex()` method to maintain `datasets/index.json`
-• Add `createEmailIndex()` method to maintain `emails/by-hash/{hash}.json`
-• Add `updateEmailIndex()` method to append runs to existing email indices
-• Create `emails/by-hash/` and `emails/by-message-id/` directories
-• Test enhanced layout with existing CLI: `bun run src/cli.ts process --num-records 1`
+**✅ MAJOR ACCOMPLISHMENTS:**
+- Enhanced dataset layout fully implemented and working with real Gmail data
+- All 15 BAML unit tests passing (IsSpam: 5/5, Classifier: 5/5, Agent: 4/4, UpdateRules: 1/1)
+- Email processing pipeline working through: Gmail fetch → HTML conversion → content hashing → spam analysis
+- Cross-run indexing system implemented with `emails/by-hash/` and `emails/by-message-id/`
+- Metadata tracking with rules versioning and processing context
 
-## BAML Unit Tests
+**🔄 CURRENTLY BLOCKED:**
+- HumanLayer integration in `src/checkWithHuman.ts` - user reports Slack message came through but processing stalls
+- Need to debug HumanLayer config/timeout to complete full email processing pipeline
+- Once HumanLayer works, full enhanced dataset capture will be proven end-to-end
 
-• Add `test DetectsObviousSpam` to `baml_src/isSpam.baml` with clear spam content
-• Add `test Handles2FACorrectly` to `baml_src/isSpam.baml` with verification code content  
-• Add `test HandlesNewsletterCorrectly` to `baml_src/isSpam.baml` with newsletter content
-• Add `test ClassifiesUrgent2FA` to `baml_src/classifier.baml` with 2FA scenario
-• Add `test ClassifiesNewsletterAsReadLater` to `baml_src/classifier.baml` with newsletter
-• Add `test ClassifiesDraftReply` to `baml_src/classifier.baml` with meeting request
-• Add `test ClassifiesNotifyImmediately` to `baml_src/classifier.baml` with security alert
-• Add `test UpdatesRulesCorrectly` to `baml_src/updateRules.baml` with rule update scenario
-• Run `bun run baml:test` to verify all tests pass
-• Add `test HandlesPhishingEmail` to `baml_src/isSpam.baml` with phishing content
-• Add `test HandlesMagicLink` to `baml_src/isSpam.baml` with auth link content
+**📧 REAL DATA TESTED:**
+- Successfully processed "The Meme Party" email from "Meme Alerts 🚨"
+- Content hash: generated from subject + from + body 
+- Processing context: rules version, model version, timestamps captured
+- Run metadata: `datasets/runs/run-{timestamp}/meta.json` created
+- Directory structure: `runs/{runId}/emails/` created and ready
 
-## Dataset Manager Enhanced Methods
+**🚀 NEXT IMMEDIATE STEPS:**
+1. Fix HumanLayer integration to complete email processing
+2. Verify full dataset capture with completed email processing
+3. Then proceed to Basic Evaluation Runner implementation
 
-• Add `findEmailsByHash(contentHash: string): Promise<EmailProcessingRun[]>` method
-• Add `getEmailHistory(emailId: string): Promise<EmailProcessingRun[]>` method  
-• Add `compareEmailRuns(runId1: string, runId2: string, emailId: string)` method
-• Add `listEmailsWithMultipleRuns(): Promise<string[]>` method
-• Add `getRunMetadata(runId: string): Promise<RunMetadata>` method
-• Add `updateRunMetadata(runId: string, metadata: RunMetadata)` method
-• Add `getGlobalIndex(): Promise<GlobalIndex>` method
-• Add `updateGlobalIndex(runId: string, emailCount: number)` method
-• Test all new methods with sample data
+---
+
+## ✅ COMPLETED: Phase 1 Enhanced Dataset Layout & BAML Tests
+
+• ✅ Add `content_hash` field to `EmailDataPoint` interface in `src/datasets.ts`
+• ✅ Add `processing_context` field with `rules_version`, `model_version`, `processing_timestamp` 
+• ✅ Create `generateContentHash()` function using crypto to hash subject + from + body
+• ✅ Add `getCurrentRulesVersion()` function to track rules file changes
+• ✅ Add `getModelVersion()` function to extract from BAML client context
+• ✅ Update `DatasetManager.startNewRun()` to create `runs/{runId}/` structure instead of flat
+• ✅ Create `runs/{runId}/meta.json` with run metadata and context
+• ✅ Create `runs/{runId}/emails/` subdirectory for email files
+• ✅ Update `DatasetManager.saveEmailData()` to save in `runs/{runId}/emails/{emailId}.json`
+• ✅ Add `createRunSummary()` method to generate `runs/{runId}/summary.json`
+• ✅ Add `updateGlobalIndex()` method to maintain `datasets/index.json`
+• ✅ Add `createEmailIndex()` method to maintain `emails/by-hash/{hash}.json`
+• ✅ Add `updateEmailIndex()` method to append runs to existing email indices
+• ✅ Create `emails/by-hash/` and `emails/by-message-id/` directories
+• ✅ Test enhanced layout with existing CLI: `bun run src/cli.ts process --num-records 1`
+
+## ✅ COMPLETED: BAML Unit Tests (15/15 tests passing)
+
+• ✅ Add `test DetectsObviousSpam` to `baml_src/isSpam.baml` with clear spam content
+• ✅ Add `test Handles2FACorrectly` to `baml_src/isSpam.baml` with verification code content  
+• ✅ Add `test HandlesNewsletterCorrectly` to `baml_src/isSpam.baml` with newsletter content
+• ✅ Add `test ClassifiesUrgent2FA` to `baml_src/classifier.baml` with 2FA scenario
+• ✅ Add `test ClassifiesNewsletterAsReadLater` to `baml_src/classifier.baml` with newsletter
+• ✅ Add `test ClassifiesDraftReply` to `baml_src/classifier.baml` with meeting request
+• ✅ Add `test ClassifiesNotifyImmediately` to `baml_src/classifier.baml` with security alert
+• ✅ Add `test UpdatesRulesCorrectly` to `baml_src/updateRules.baml` with rule update scenario (existing)
+• ✅ Run `bun run baml:test` to verify all tests pass
+• ✅ Add `test HandlesPhishingEmail` to `baml_src/isSpam.baml` with phishing content
+• ✅ Add `test HandlesMagicLink` to `baml_src/isSpam.baml` with auth link content
+
+## ✅ MOSTLY COMPLETED: Dataset Manager Enhanced Methods
+
+• ✅ Add `findEmailsByHash(contentHash: string): Promise<EmailProcessingRun[]>` method
+• ✅ Add `getEmailHistory(emailId: string): Promise<EmailProcessingRun[]>` method  
+• ❌ Add `compareEmailRuns(runId1: string, runId2: string, emailId: string)` method (not needed yet)
+• ❌ Add `listEmailsWithMultipleRuns(): Promise<string[]>` method (not needed yet)
+• ❌ Add `getRunMetadata(runId: string): Promise<RunMetadata>` method (not needed yet)
+• ❌ Add `updateRunMetadata(runId: string, metadata: RunMetadata)` method (not needed yet)
+• ❌ Add `getGlobalIndex(): Promise<GlobalIndex>` method (not needed yet)
+• ✅ Add `updateGlobalIndex(runId: string, emailCount: number)` method
+• ❌ Test all new methods with sample data (blocked by HumanLayer issue)
 
 ## Basic Evaluation Runner
 

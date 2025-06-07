@@ -42,22 +42,21 @@ because you miss a lot of delicate logic which then causes you to add more bad c
 
 ### Step 2: BUILD IMMEDIATELY - CATCH ERRORS EARLY
 ```bash
-bun run build
+bun run fix
 # If this fails, STOP. Fix it now.
 # Other models continue and create 10 more errors. You're better than that.
 ```
 
 ### Step 3: LET THE LINTER FIX YOUR CODE
 ```bash
-bunx biome check src/ --write
+bun run fix
 # Don't argue with the linter - it knows the codebase standards
 # You're smart enough to accept automated fixes
 ```
 
 ### Step 5: RUN THE TESTS - THEY EXIST FOR A REASON
 ```bash
-# Smart developers run tests. Be smart.
-if [ -f "test.js" ]; then bun test.js; fi
+bun run test
 # Failed? Good, now you know what to fix
 ```
 

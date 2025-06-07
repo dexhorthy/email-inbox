@@ -1,6 +1,6 @@
 Mark as spam all emails that:
 - are a cold outreach email
-- are a sales/marketing email e.g. for an e-commerce site, unless they focus primarily on sharing community content or trending topics like memes, and do not push direct sales aggressively. 
+- are a sales/marketing email e.g. for an e-commerce site, unless they focus primarily on sharing community content or trending topics like memes, and do not aggressively push direct sales or have a clear call to upgrade for access or payment. 
 
 do NOT mark as spam emails that:
 - pertain to event notifications, unless they are error alerts or system-generated error messages from automated services; mark error alerts and system-generated error messages from automated services as spam, except those from trusted monitoring services like Sentry

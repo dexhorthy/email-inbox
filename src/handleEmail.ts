@@ -5,7 +5,13 @@ import TurndownService from "turndown";
 import { b } from "../baml_client";
 import { checkWithHuman } from "./checkWithHuman";
 import { contactHuman, getDraftFeedback } from "./contactHuman";
-import { DatasetManager, type EmailDataPoint } from "./datasets";
+import {
+	DatasetManager,
+	type EmailDataPoint,
+	generateContentHash,
+	getCurrentRulesVersion,
+	getModelVersion,
+} from "./datasets";
 
 export async function loadRules(): Promise<string> {
 	try {
@@ -68,6 +74,12 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 	const emailData: EmailDataPoint = {
 		id: emailInfo.id!,
 		timestamp: new Date().toISOString(),
+		content_hash: generateContentHash(subject || "", from || "", ""),
+		processing_context: {
+			rules_version: getCurrentRulesVersion(),
+			model_version: getModelVersion(),
+			processing_timestamp: new Date().toISOString(),
+		},
 		envelope: {
 			subject: subject || undefined,
 			from: from || undefined,
@@ -119,8 +131,8 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 		b.HtmlToMarkdown(body.text),
 		b.HtmlToMarkdown(body.html),
 	]);
-	body.text = text;
-	body.html = html;
+	body.text = text.markdown;
+	body.html = html.markdown;
 
 	// Update dataset with content
 	emailData.content = {
@@ -128,6 +140,13 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 		html: body.html,
 		markdown: body.html.length > body.text.length ? body.html : body.text,
 	};
+
+	// Update content hash with actual body content
+	emailData.content_hash = generateContentHash(
+		subject || "",
+		from || "",
+		body.html.length > body.text.length ? body.html : body.text,
+	);
 
 	console.log("body", body);
 

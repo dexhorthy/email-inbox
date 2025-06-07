@@ -9,6 +9,7 @@
         "typecheck": "tsc --noEmit",
 
         "lint:fix": "biome check src/ --write",
+        "lint:fix:unsafe": "biome check src/ --write --unsafe",
         "lint": "biome check src/",
 
         "fix": "bun run baml:generate && bun run lint:fix",
@@ -19,7 +20,7 @@
         "test:e2e": "bun run src/test/test-e2e.ts",
         "test": "bun run test:baml && bun run test:unit && bun run test:e2e",
 
-        "dev": "bun run fix && bun run src/cli.ts",
+        "dev": "bun run fix && bun run src/cli.ts process --num-records 1",
 
         "githooks": "echo 'bun run pre-push' > .git/hooks/pre-push && chmod +x .git/hooks/pre-push",
 
