@@ -20,15 +20,14 @@ export const updateRules = async (
 
 		if (rulesUpdate.old_string && rules.includes(rulesUpdate.old_string)) {
 			return rules.replace(rulesUpdate.old_string, rulesUpdate.new_string);
-		} else {
-			console.log(
-				`Rule ${rulesUpdate.old_string} not found in ruleset, trying again`,
-			);
-			attempt++;
 		}
+		console.log(
+			`Rule ${rulesUpdate.old_string} not found in ruleset, trying again`,
+		);
+		attempt++;
 	}
 
-	throw new Error(`Failed to update rules after 3 attempts`);
+	throw new Error("Failed to update rules after 3 attempts");
 };
 
 if (require.main === module) {

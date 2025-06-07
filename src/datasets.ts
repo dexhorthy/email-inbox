@@ -1,5 +1,5 @@
-import path from "path";
-import fs from "fs/promises";
+import fs from "node:fs/promises";
+import path from "node:path";
 import type { gmail_v1 } from "googleapis";
 
 export interface EmailDataPoint {
