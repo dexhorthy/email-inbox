@@ -1,7 +1,6 @@
 import fs from "node:fs/promises"
 import type { gmail_v1 } from "googleapis"
 import { google } from "googleapis"
-import TurndownService from "turndown"
 import { b } from "../baml_client"
 import { checkWithHuman } from "./checkWithHuman"
 import { contactHuman, getDraftFeedback } from "./contactHuman"
@@ -12,6 +11,116 @@ import {
   getCurrentRulesVersion,
   getModelVersion,
 } from "./datasets"
+import { parseEmailBody } from "./emailParser"
+
+// Interfaces for dependency injection
+export interface EmailFetcher {
+  fetchEmail(): Promise<gmail_v1.Schema$Message>
+}
+
+export interface GmailLabeler {
+  labelEmail(messageId: string, labelName: "SPAM" | string): Promise<void>
+}
+
+export interface HumanApprover {
+  checkWithHuman(params: {
+    from: string
+    subject: string
+    body: string
+    proposedClassification: any
+    existingRuleset: string
+  }): Promise<{ updatedRuleset?: string; approved: boolean }>
+}
+
+export interface DatasetWriter {
+  startNewRun(): Promise<string>
+  saveEmailData(emailData: EmailDataPoint): Promise<void>
+}
+
+// Implementations
+export class MessageIdEmailFetcher implements EmailFetcher {
+  constructor(
+    private gmail: gmail_v1.Gmail,
+    private messageId: string,
+  ) {}
+
+  async fetchEmail(): Promise<gmail_v1.Schema$Message> {
+    const email = await this.gmail.users.messages.get({
+      userId: "me",
+      id: this.messageId,
+    })
+    return { id: this.messageId, ...email.data }
+  }
+}
+
+export class LastEmailFetcher implements EmailFetcher {
+  constructor(
+    private gmail: gmail_v1.Gmail,
+    private count = 1,
+  ) {}
+
+  async fetchEmail(): Promise<gmail_v1.Schema$Message> {
+    const response = await this.gmail.users.messages.list({
+      userId: "me",
+      maxResults: this.count,
+    })
+    const messages = response.data.messages || []
+    if (messages.length === 0) {
+      throw new Error("No emails found")
+    }
+    return messages[0]
+  }
+}
+
+export class RealGmailLabeler implements GmailLabeler {
+  constructor(private gmail: gmail_v1.Gmail) {}
+
+  async labelEmail(
+    messageId: string,
+    labelName: "SPAM" | string,
+  ): Promise<void> {
+    await labelEmail(messageId, labelName)
+  }
+}
+
+export class NoOpGmailLabeler implements GmailLabeler {
+  async labelEmail(
+    messageId: string,
+    labelName: "SPAM" | string,
+  ): Promise<void> {
+    // No-op for testing
+  }
+}
+
+export class RealHumanApprover implements HumanApprover {
+  async checkWithHuman(params: {
+    from: string
+    subject: string
+    body: string
+    proposedClassification: any
+    existingRuleset: string
+  }) {
+    return await checkWithHuman(params)
+  }
+}
+
+export class NoOpHumanApprover implements HumanApprover {
+  async checkWithHuman(_params: any) {
+    return { approved: true }
+  }
+}
+
+export class RealDatasetWriter implements DatasetWriter {
+  constructor(private datasetManager: DatasetManager) {}
+
+  async startNewRun(): Promise<string> {
+    return await this.datasetManager.startNewRun()
+  }
+
+  async saveEmailData(emailData: EmailDataPoint): Promise<void> {
+    await this.datasetManager.saveEmailData(emailData)
+  }
+}
 
 export async function loadRules(): Promise<string> {
   try {
@@ -55,10 +164,22 @@ oauth2Client.setCredentials({
 // Create Gmail API client
 const gmail = google.gmail({ version: "v1", auth: oauth2Client })
 
-const turndownService = new TurndownService()
 const datasetManager = new DatasetManager()
 
-export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
+export async function handleEmailWithDependencies(
+  emailFetcher: EmailFetcher,
+  gmailLabeler: GmailLabeler,
+  humanApprover: HumanApprover,
+  datasetWriter: DatasetWriter,
+  gmail: gmail_v1.Gmail,
+) {
+  // Start a new dataset run
+  const runId = await datasetWriter.startNewRun()
+  console.log(`🗂️ Started dataset collection run: ${runId}`)
+
+  // Fetch the email using the provided fetcher
+  const emailInfo = await emailFetcher.fetchEmail()
+
   const email = await gmail.users.messages.get({
     userId: "me",
     id: emailInfo.id!,
@@ -103,29 +224,10 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
     labels_applied: [],
   }
 
-  const body = {
-    text: "",
-    html: "",
-  }
   if (!email.data.payload) return
-  for (const part of email.data.payload.parts || []) {
-    if (part.body) {
-      if (part.mimeType === "text/plain" && part.body?.data) {
-        body.text = Buffer.from(part.body.data, "base64").toString()
-      } else if (part.mimeType === "text/html" && part.body?.data) {
-        body.html = Buffer.from(part.body.data, "base64").toString()
-      }
-    }
-    if (part.mimeType === "multipart/alternative") {
-      for (const p of part?.parts || []) {
-        if (p.mimeType === "text/plain" && p.body?.data) {
-          body.text = Buffer.from(p.body.data, "base64").toString()
-        } else if (p.mimeType === "text/html" && p.body?.data) {
-          body.html = Buffer.from(p.body.data, "base64").toString()
-        }
-      }
-    }
-  }
+
+  // Use the tested email parser
+  const body = parseEmailBody(email.data.payload)
 
   const [text, html] = await Promise.all([
     b.HtmlToMarkdown(body.text),
@@ -151,10 +253,10 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
   console.log("body", body)
 
   const envelope = `
-	Subject: ${subject}
-	From: ${from}
-	Date: ${date}
-	`
+		Subject: ${subject}
+		From: ${from}
+		Date: ${date}
+		`
 
   const isSpam = await b.IsSpam(envelope, body.html, body.text, rules)
 
@@ -179,9 +281,8 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
   }
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
-  // Decide if the email is spam
-  console.log("🤔 Verifying classification with human...")
-  const { updatedRuleset, approved } = await checkWithHuman({
+  // Check with human (or no-op for testing)
+  const { updatedRuleset, approved } = await humanApprover.checkWithHuman({
     from: from ?? "Unknown Sender",
     subject: subject ?? "Unknown Subject",
     body: body.html.length > body.text.length ? body.html : body.text,
@@ -189,11 +290,13 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
     existingRuleset: rules,
   })
 
-  // Update dataset with human interaction
-  emailData.human_interaction = {
-    timestamp: new Date().toISOString(),
-    approved,
-    updated_ruleset: updatedRuleset,
+  // Update dataset with human interaction if it happened
+  if (humanApprover instanceof RealHumanApprover) {
+    emailData.human_interaction = {
+      timestamp: new Date().toISOString(),
+      approved,
+      updated_ruleset: updatedRuleset,
+    }
   }
 
   if (updatedRuleset) {
@@ -203,13 +306,18 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
   }
 
   if (isSpam.is_spam && approved) {
-    console.log("🚫 Moving to spam folder...")
-    await labelEmail(emailInfo.id!, "SPAM")
+    const isTestMode = humanApprover instanceof NoOpHumanApprover
+    if (isTestMode) {
+      console.log("🚫 Final Decision: SPAM")
+    } else {
+      console.log("🚫 Moving to spam folder...")
+    }
+    await gmailLabeler.labelEmail(emailInfo.id!, "SPAM")
     emailData.final_classification = {
       category: "spam",
     }
-    emailData.labels_applied = ["SPAM"]
-    await datasetManager.saveEmailData(emailData)
+    emailData.labels_applied = isTestMode ? [] : ["SPAM"]
+    await datasetWriter.saveEmailData(emailData)
     return
   }
 
@@ -223,31 +331,51 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
     rules,
   )
 
+  const isTestMode = humanApprover instanceof NoOpHumanApprover
+
   console.log("\n📌 Classification Result")
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
   switch (classification.classification.classification) {
     case "read_today":
-      console.log("📌 Labeling as: Read Today")
-      await labelEmail(emailInfo.id!, "@read_today")
-      emailData.labels_applied = ["@read_today"]
+      if (isTestMode) {
+        console.log("📌 Final Decision: READ TODAY")
+      } else {
+        console.log("📌 Labeling as: Read Today")
+      }
+      await gmailLabeler.labelEmail(emailInfo.id!, "@read_today")
+      emailData.labels_applied = isTestMode ? [] : ["@read_today"]
       break
     case "read_later":
-      console.log("📌 Labeling as: Read Later")
-      await labelEmail(emailInfo.id!, "@read_later")
-      emailData.labels_applied = ["@read_later"]
+      if (isTestMode) {
+        console.log("📌 Final Decision: READ LATER")
+      } else {
+        console.log("📌 Labeling as: Read Later")
+      }
+      await gmailLabeler.labelEmail(emailInfo.id!, "@read_later")
+      emailData.labels_applied = isTestMode ? [] : ["@read_later"]
       break
     case "notify_immediately":
-      console.log("🔔 Important: Requires immediate attention")
-      await contactHuman(classification.classification.message)
+      if (isTestMode) {
+        console.log("🔔 Final Decision: NOTIFY IMMEDIATELY")
+        console.log(`   Message: ${classification.classification.message}`)
+      } else {
+        console.log("🔔 Important: Requires immediate attention")
+        await contactHuman(classification.classification.message)
+      }
       break
     case "draft_reply":
-      console.log("✍️ Drafting reply...")
-      await getDraftFeedback({
-        from: from ?? "Unknown Sender",
-        subject: subject ?? "Unknown Subject",
-        summary: classification.classification.summary,
-        body: classification.classification.body,
-      })
+      if (isTestMode) {
+        console.log("✍️ Final Decision: DRAFT REPLY")
+        console.log(`   Summary: ${classification.classification.summary}`)
+      } else {
+        console.log("✍️ Drafting reply...")
+        await getDraftFeedback({
+          from: from ?? "Unknown Sender",
+          subject: subject ?? "Unknown Subject",
+          summary: classification.classification.summary,
+          body: classification.classification.body,
+        })
+      }
       break
   }
 
@@ -271,9 +399,45 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
   }
 
   // Save email data to dataset
-  await datasetManager.saveEmailData(emailData)
+  await datasetWriter.saveEmailData(emailData)
 
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+}
+
+export async function handleOneEmailWithoutApproval(
+  emailInfo: gmail_v1.Schema$Message,
+) {
+  const emailFetcher = new MessageIdEmailFetcher(gmail, emailInfo.id!)
+  const gmailLabeler = new NoOpGmailLabeler()
+  const humanApprover = new NoOpHumanApprover()
+  const datasetWriter = new RealDatasetWriter(datasetManager)
+
+  console.log("🤖 Auto-classifying without human approval...")
+
+  await handleEmailWithDependencies(
+    emailFetcher,
+    gmailLabeler,
+    humanApprover,
+    datasetWriter,
+    gmail,
+  )
+}
+
+export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
+  const emailFetcher = new MessageIdEmailFetcher(gmail, emailInfo.id!)
+  const gmailLabeler = new RealGmailLabeler(gmail)
+  const humanApprover = new RealHumanApprover()
+  const datasetWriter = new RealDatasetWriter(datasetManager)
+
+  console.log("🤔 Verifying classification with human...")
+
+  await handleEmailWithDependencies(
+    emailFetcher,
+    gmailLabeler,
+    humanApprover,
+    datasetWriter,
+    gmail,
+  )
 }
 
 export async function labelEmail(

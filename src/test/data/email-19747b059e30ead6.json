@@ -1,0 +1,138 @@
+{
+  "partId": "",
+  "mimeType": "multipart/alternative",
+  "filename": "",
+  "headers": [
+    {
+      "name": "Delivered-To",
+      "value": "dexter@humanlayer.dev"
+    },
+    {
+      "name": "Received",
+      "value": "by 2002:abe:380c:0:b0:3f3:14bb:5bfc with SMTP id h12csp132555vli;        Fri, 6 Jun 2025 17:00:29 -0700 (PDT)"
+    },
+    {
+      "name": "X-Google-Smtp-Source",
+      "value": "AGHT+IHNpsC4atYsdLoyGl+zgSoNSw+GANoKL1F8iQfR7l/fGYiE2kgsZRz8S3YMpblGikCncRZj"
+    },
+    {
+      "name": "X-Received",
+      "value": "by 2002:a05:6a00:21d3:b0:746:3200:5f8 with SMTP id d2e1a72fcca58-74827f304f8mr6308841b3a.22.1749254429115;        Fri, 06 Jun 2025 17:00:29 -0700 (PDT)"
+    },
+    {
+      "name": "ARC-Seal",
+      "value": "i=1; a=rsa-sha256; t=1749254429; cv=none;        d=google.com; s=arc-20240605;        b=KrvMXJX8sQcUkVpedz5AYzDWIf0DseF+VyCWbvSZi7AInRDGaf9ncSYUQpA/8yIzoz         zLsJI2qDAjQaYz5jDk2SHVv3w3zU++HBc4W52ZkWHZvw0BZb6CLRjA7sapKDz4dlAaeU         Eu+CjeWZcwq2oY+CrK5+JO6qdAs9qU69LPe2ARULYaedOtjVvq68Oj0kAxyOjEYq7IO9         UDOfAdd3iszW0NWx3Ihzbz31sNJCKq8jpgSs8uyZ2nwsz6ODqTZTZ72M78Vez3zDgS4z         HAh1XJWu90W52RKeWySgmxw4nToQ1xdfjJsO7Skffjd15zGo7oXJ7RAFDB9wxAwlAwhl         pDzQ=="
+    },
+    {
+      "name": "ARC-Message-Signature",
+      "value": "i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20240605;        h=feedback-id:message-id:mime-version:subject:to:from:date         :dkim-signature:dkim-signature;        bh=eKd5ibT2WGzhNc0nSGWsSPYZwatcT5mjVhWntguH+Is=;        fh=KBiKTHINnYeeVFl5Ul4uLc2gnw5r26dlVFw3ZlUfJXg=;        b=e7Pe3bh5cGld6lUKcYSoITjkAIVBSDDHhPMf5tMVHJXt5LsmQrTVxRu7CxO2EG+ogQ         u7/3TDx9P8yQkwx5MJ66kdtg7tYgaD7zCSe8XWpeQrxCzdiLVn7n2xyWkUCsPPJ6j0Nf         yBXKV8UgEeveKPKPYItl1aTY5QIrDG6xVXvMrQxJqdtSwHSRO6t++eI27TZWATrunzZ3         zfutIbIAm1bKyu1sMP66E2CsGor9MOv0QzJk1yS0oHnWmj+TMXkMh13yGFEcLjo3ixBF         /poUjHsb/jPmr3SU+DLw8ZNvQC2O4eYeIBswsfUdj0luwx0iX655Jn63+CplHryHVmdA         VzkQ==;        dara=google.com"
+    },
+    {
+      "name": "ARC-Authentication-Results",
+      "value": "i=1; mx.google.com;       dkim=pass header.i=@scarf.sh header.s=kgdw3l5ofounbatwj2xjwc5gzaa6cbit header.b=OYmV8mRq;       dkim=pass header.i=@amazonses.com header.s=gdwg2y3kokkkj5a55z2ilkup5wp5hhxx header.b=Fdxr5Qen;       spf=pass (google.com: domain of 0101019747b055aa-de03f65b-cee0-482a-8fa0-c7e63de1f2ea-000000@us-west-2.amazonses.com designates 54.240.27.30 as permitted sender) smtp.mailfrom=0101019747b055aa-de03f65b-cee0-482a-8fa0-c7e63de1f2ea-000000@us-west-2.amazonses.com;       dmarc=pass (p=QUARANTINE sp=NONE dis=NONE) header.from=scarf.sh"
+    },
+    {
+      "name": "Return-Path",
+      "value": "<0101019747b055aa-de03f65b-cee0-482a-8fa0-c7e63de1f2ea-000000@us-west-2.amazonses.com>"
+    },
+    {
+      "name": "Received",
+      "value": "from a27-30.smtp-out.us-west-2.amazonses.com (a27-30.smtp-out.us-west-2.amazonses.com. [54.240.27.30])        by mx.google.com with ESMTPS id d2e1a72fcca58-7482b05c695si3468031b3a.113.2025.06.06.17.00.28        for <dexter@humanlayer.dev>        (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128);        Fri, 06 Jun 2025 17:00:29 -0700 (PDT)"
+    },
+    {
+      "name": "Received-SPF",
+      "value": "pass (google.com: domain of 0101019747b055aa-de03f65b-cee0-482a-8fa0-c7e63de1f2ea-000000@us-west-2.amazonses.com designates 54.240.27.30 as permitted sender) client-ip=54.240.27.30;"
+    },
+    {
+      "name": "Authentication-Results",
+      "value": "mx.google.com;       dkim=pass header.i=@scarf.sh header.s=kgdw3l5ofounbatwj2xjwc5gzaa6cbit header.b=OYmV8mRq;       dkim=pass header.i=@amazonses.com header.s=gdwg2y3kokkkj5a55z2ilkup5wp5hhxx header.b=Fdxr5Qen;       spf=pass (google.com: domain of 0101019747b055aa-de03f65b-cee0-482a-8fa0-c7e63de1f2ea-000000@us-west-2.amazonses.com designates 54.240.27.30 as permitted sender) smtp.mailfrom=0101019747b055aa-de03f65b-cee0-482a-8fa0-c7e63de1f2ea-000000@us-west-2.amazonses.com;       dmarc=pass (p=QUARANTINE sp=NONE dis=NONE) header.from=scarf.sh"
+    },
+    {
+      "name": "DKIM-Signature",
+      "value": "v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple; s=kgdw3l5ofounbatwj2xjwc5gzaa6cbit; d=scarf.sh; t=1749254428; h=Date:From:To:Subject:MIME-Version:Content-Type:Message-ID; bh=k6q7d/9V5JHP14MJDoXARRMtFB1LaNbofLO7QCU2MXo=; b=OYmV8mRqhgYqKGTUX2+Wbo9LPHjOYpBTzU02tG/fR/+8HsIkFlXOQ8ndHvm5ZT/b FGTVcFFPwtiPaQ+/QWI8GXQV6jhN6wkXwnju52lctIZio8AkkKGjFdMTA/9IT29uwmo JCOcEoxNI2xRsImkL8AuJSms02SiRaiMPB9Dztcc="
+    },
+    {
+      "name": "DKIM-Signature",
+      "value": "v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple; s=gdwg2y3kokkkj5a55z2ilkup5wp5hhxx; d=amazonses.com; t=1749254428; h=Date:From:To:Subject:MIME-Version:Content-Type:Message-ID:Feedback-ID; bh=k6q7d/9V5JHP14MJDoXARRMtFB1LaNbofLO7QCU2MXo=; b=Fdxr5QenFnGh4NUw1AUkbugYQb3vmORdgYftWE/Koxd3gUKEFIMVUtv2HAt9yN+Q 3o7lcl0oyIfBXH3c8s7Yn4AHh4OT5rz6R6Ly5vYFSsLS5JQ4140VgGkwt+sklO7lggj wqHw+u4jv258y9JuPLsfOpbDBEXOJvKML6vu6afQ="
+    },
+    {
+      "name": "Date",
+      "value": "Sat, 7 Jun 2025 00:00:28 +0000"
+    },
+    {
+      "name": "From",
+      "value": "Scarf Team <do-not-reply@scarf.sh>"
+    },
+    {
+      "name": "To",
+      "value": "dexter@humanlayer.dev"
+    },
+    {
+      "name": "Subject",
+      "value": "[Scarf] Your weekly digest for HumanLayer"
+    },
+    {
+      "name": "MIME-Version",
+      "value": "1.0"
+    },
+    {
+      "name": "Content-Type",
+      "value": "multipart/alternative; boundary=\"----=_Part_737929_390590229.1749254428173\""
+    },
+    {
+      "name": "Message-ID",
+      "value": "<0101019747b055aa-de03f65b-cee0-482a-8fa0-c7e63de1f2ea-000000@us-west-2.amazonses.com>"
+    },
+    {
+      "name": "Feedback-ID",
+      "value": "::1.us-west-2.Gyzt4g40Kf1Gy7DvYrF+RYwjzjh/ocJUpSt1A6E7Cnc=:AmazonSES"
+    },
+    {
+      "name": "X-SES-Outgoing",
+      "value": "2025.06.07-54.240.27.30"
+    }
+  ],
+  "body": {
+    "size": 0
+  },
+  "parts": [
+    {
+      "partId": "0",
+      "mimeType": "text/plain",
+      "filename": "",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "text/plain; charset=UTF-8"
+        },
+        {
+          "name": "Content-Transfer-Encoding",
+          "value": "7bit"
+        }
+      ],
+      "body": {
+        "size": 435,
+        "data": "DQpEZXh0ZXIsDQoNCllvdXIgd2Vla2x5IFNjYXJmIGRpZ2VzdCBmb3IgSHVtYW5MYXllciBpcyBoZXJlIQ0KDQpFdmVudCBTdW1tYXJ5DQoNClRvdGFsIGV2ZW50czogMjY4Mw0KVW5pcXVlIGV2ZW50czogMTczDQpOZXcgY29tcGFuaWVzOiAxDQoNCkZ1bm5lbCBSZXBvcnQNCllvdXIgZnVubmVsIHJlcG9ydCBzaG93cyBob3cgbWFueSB0cmFja2VkIGNvbXBhbmllcyBhcmUgaW4gZWFjaCBhY3RpdmUgZnVubmVsIHN0YWdlOg0KDQpJbnRlcmVzdDogMg0KSW52ZXN0aWdhdGlvbjogMA0KRXhwZXJpbWVudGF0aW9uOiAxDQpPbmdvaW5nIFVzYWdlOiAwDQpJbmFjdGl2ZTogMA0KDQpUbyBtYW5hZ2UgeW91ciBub3RpZmljYXRpb24gc2V0dGluZ3MsIHZpc2l0IGh0dHBzOi8vYXBwLnNjYXJmLnNoL29yZ2FuaXphdGlvbnMvSHVtYW5MYXllci9ub3RpZmljYXRpb25zLg0K"
+      }
+    },
+    {
+      "partId": "1",
+      "mimeType": "text/html",
+      "filename": "",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "text/html; charset=UTF-8"
+        },
+        {
+          "name": "Content-Transfer-Encoding",
+          "value": "7bit"
+        }
+      ],
+      "body": {
+        "size": 1595,
+        "data": "PCFET0NUWVBFIGh0bWw-PGh0bWwgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGh0bWwiIGRpcj0ibHRyIiBsYW5nPSJlbiIgc3R5bGU9Im1hcmdpbjogMHB4OyBtaW4td2lkdGg6IDEwMCU7IHBhZGRpbmc6IDBweDsgd2lkdGg6IDEwMCU7Ig0KIHhtbG5zOnY9M0QidXJuOnNjaGVtYXMtbWljcm9zb2Z0LWNvbTp2bWwiIHhtbG5zOm89InVybjpzY2hlbWFzLW1pY3Jvc29mdC1jb206b2ZmaWNlOm9mZmljZSI-PGhlYWQ-DQo8bWV0YSBjaGFyc2V0PSJ1dGYtOCIgLz4NCjwvaGVhZD4NCjxib2R5Pg0KPHRhYmxlIGJvcmRlcj0wIHdpZHRoPTYwMHB4Pg0KPHRyPjx0ZCBjb2xzcGFuPTIgYWxpZ249Y2VudGVyPg0KPGltZyBzcmM9Imh0dHBzOi8vc3RhdGljLWFzc2V0cy5zY2FyZi5zaC9ub3RpZmljYXRpb25zL2hlYWRlci5wbmciIGFsdD0iU2NhcmYgLSBBbmFseXRpY3MgZm9yIE9wZW4gU291cmNlIiB3aWR0aD0xMDAlPg0KCTwvdGQ-PC90cj4NCgk8dHI-PHRkIGNvbHNwYW49Mj4NCjxwPg0KRGV4dGVyLA0KPHA-DQpZb3VyIHdlZWtseSBTY2FyZiBkaWdlc3QgZm9yIEh1bWFuTGF5ZXIgaXMgaGVyZSENCjwvdGQ-PC90cj4NCjx0cj48dGQgY29sc3Bhbj0yIGFsaWduPWxlZnQ-DQo8aDI-RXZlbnQgU3VtbWFyeTwvaDI-PC90ZD48L3RyPg0KPHRyPjx0ZCB3aWR0aD0zMCU-VG90YWwgZXZlbnRzOjwvdGQ-PHRkPjI2ODM8L3RkPjwvdHI-DQo8dHI-PHRkIHdpZHRoPTMwJT5VbmlxdWUgZXZlbnRzOjwvdGQ-PHRkPjE3MzwvdGQ-PC90cj4NCjx0cj48dGQgd2lkdGg9MzAlPk5ldyBjb21wYW5pZXM6PC90ZD48dGQ-MTwvdGQ-PC90cj4NCjx0cj48dGQgY29sc3Bhbj0yIGFsaWduPWxlZnQ-DQo8aDI-RnVubmVsIFJlcG9ydDwvaDI-DQo8L3RkPjwvdHI-DQo8dHI-PHRkIGNvbHNwYW49Mj4NCllvdXIgZnVubmVsIHJlcG9ydCBzaG93cyBob3cgbWFueSB0cmFja2VkIGNvbXBhbmllcyBhcmUgaW4gZWFjaCBhY3RpdmUgZnVubmVsIHN0YWdlOg0KPC90ZD48L3RyPg0KPHRyPjx0ZCB3aWR0aD0yMCU-SW50ZXJlc3Q6PC90ZD48dGQ-MjwvdGQ-PC90cj4NCjx0cj48dGQgd2lkdGg9MjAlPkludmVzdGlnYXRpb246PC90ZD48dGQ-MDwvdGQ-PC90cj4NCjx0cj48dGQgd2lkdGg9MjAlPkV4cGVyaW1lbnRhdGlvbjo8L3RkPjx0ZD4xPC90ZD48L3RyPg0KPHRyPjx0ZCB3aWR0aD0yMCU-T25nb2luZyBVc2FnZTo8L3RkPjx0ZD4wPC90ZD48L3RyPg0KPHRyPjx0ZCB3aWR0aD0yMCU-SW5hY3RpdmU6PC90ZD48dGQ-MDwvdGQ-PC90cj4NCjwvdGFibGU-DQo8cD4NClRvIG1hbmFnZSB5b3VyIG5vdGlmaWNhdGlvbiBzZXR0aW5ncywgPGEgaHJlZj0iaHR0cHM6Ly9hcHAuc2NhcmYuc2gvb3JnYW5pemF0aW9ucy9IdW1hbkxheWVyL25vdGlmaWNhdGlvbnMiPmNsaWNrIGhlcmU8L2E-Lg0KPGltZyByZWZlcnJlcnBvbGljeT0ibm8tcmVmZXJyZXItd2hlbi1kb3duZ3JhZGUiIHNyYz0iaHR0cHM6Ly9zdGF0aWMuc2NhcmYuc2gvYS5wbmc_eC1weGlkPWUyOTg3ZDllLTM5ZGQtNDQzNy1hMTA0LTU4OGFlNzMxMmIyOCZ1dG1fc291cmNlPWRpZ2VzdCZvcmc9SHVtYW5MYXllciZtYWdpYz1kZXhob3J0aHkiIC8-DQo8L2JvZHk-DQo="
+      }
+    }
+  ]
+}

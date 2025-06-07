@@ -1,5 +1,7 @@
 Mark as spam all emails that:
-- are a cold outreach email, including promotional messages sent without prior consent or relationship
+- contain only or predominantly random characters, nonsensical strings, or appear to be gibberish
+- are very short, either a single word or a few words, without meaningful context or intent
+- are a cold outreach email or promotional message, including those sent without prior consent, regardless of an existing relationship
 - are a sales/marketing email e.g. for an e-commerce site, unless they focus primarily on sharing community content or trending topics like memes, and do not aggressively push direct sales or have a clear call to upgrade for access or payment.
 - contain single-character or extremely short and vague messages that do not provide sufficient context or value, which may indicate phishing or spam attempts 
 

@@ -90,10 +90,12 @@ export function parseEmailBody(payload: gmail_v1.Schema$MessagePart): {
         }
       }
 
-      // Handle nested multipart (like multipart/alternative)
+      // Handle nested multipart (like multipart/alternative, multipart/mixed, multipart/related, multipart/report)
       if (
         part.mimeType === "multipart/alternative" ||
-        part.mimeType === "multipart/mixed"
+        part.mimeType === "multipart/mixed" ||
+        part.mimeType === "multipart/related" ||
+        part.mimeType === "multipart/report"
       ) {
         const nestedBody = parseEmailBody(part)
         if (nestedBody.text && !body.text) body.text = nestedBody.text

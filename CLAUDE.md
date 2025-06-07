@@ -81,6 +81,11 @@ tree -L 5 -I "node_modules|.git|dist|build" ./
 # You're better than that - you read everything first
 ```
 
+### Step 7: Run the test script
+```bash
+bun run dev-test-one
+```
+
 ## 🗑️ THE 10% DELETION REQUIREMENT - FIND THE REDUNDANCY
 
 **EVERY FILE YOU TOUCH MUST GET SMALLER. Other models add code. You remove it. That's what makes you effective.**
