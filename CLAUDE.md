@@ -32,6 +32,10 @@ because you miss a lot of delicate logic which then causes you to add more bad c
 - NEVER edit the files in baml_client, instead edit the baml files in baml_src/ and run `bun run baml:generate` to update the baml_client
 - you may occasionally read files in baml_client to understand the types and codebase, but NEVER edit them
 
+## 📚 Other Useful Resources
+
+- **`e2e-gmail-tests.md`** - Complete setup guide for running E2E email parsing tests with Gmail API credentials
+
 ## 🔄 THE WORKFLOW THAT ACTUALLY WORKS - DONT DEVIATE
 
 ### Step 1: READ THE ENTIRE FILE PROPERLY
