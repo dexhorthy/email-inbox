@@ -1,22 +1,18 @@
 class ReadToday {
-    relevant_rules string @description("The rules that were used to classify the email")
     classification "read_today" @description("Mark an email as 'read_today' if it is a high priority email that should be read immediately.")
 }
 
 class ReadLater {
-    relevant_rules string @description("The rules that were used to classify the email")
     classification "read_later" @description("Mark an email as 'read_later' if it is a low priority email that can be read later, but isn't spam.")
 }
 
 class NotifyHumanImmediately {
-    relevant_rules string @description("The rules that were used to classify the email")
     classification "notify_immediately" @description("Mark an email as 'notify_immediately' if the email should be shown to the user immediately. Examples include but are not limited to a 2-factor authentication code, a security alert, or a 'magic link' for signing in which should be forwarded to a user immediately")
     message string @description("The important details from the email that should be show to the user immediately")
 }
 
 // draft reply - will require human approval
 class DraftReply {
-    relevant_rules string @description("The rules that were used to classify the email")
     classification "draft_reply" @description("Mark an email as 'draft_reply' if the email is ready to be replied, and you have enough information to draft a reply - e.g. sending a calendar link. Only do this is the rules explicitly state that you should reply to these types of emails.")
     body string @description("The body of your draft")
     summary string @description("A summary of the email that you are drafting a reply for. Include any important details & action items. Make sure to tell the user what you are proposing")
@@ -24,7 +20,6 @@ class DraftReply {
 
 // try unsubscribe - will require human approval
 class TryUnsubscribe {
-    relevant_rules string @description("The rules that state these types of emails should be unsubscribed from")
     classification "try_unsubscribe" @description("Mark an email as 'try_unsubscribe' if the email is a try to unsubscribe from a newsletter or mailing list. Only do this if the rules explicitly state that you should unsubscribe from these types of emails.")
     unsubscribe_url string? @description("The url of the unsubscribe page")
     unsubscribe_text string? @description("The text of the unsubscribe link")
@@ -32,14 +27,26 @@ class TryUnsubscribe {
     unsubscribe_button_url string? @description("The url of the unsubscribe button")
 }
 
-type ClassifierResult = ReadToday | ReadLater | NotifyHumanImmediately | DraftReply | TryUnsubscribe
+class Classification {
+    relevant_rules string[] @description("exact verbatims of one or more rules that were used to classify the email")
+    classification ReadToday | ReadLater | NotifyHumanImmediately | DraftReply | TryUnsubscribe
+}
 
-function Classify(subject: string, from: string, body: string, ruleset: string) -> ClassifierResult {
+
+function Classify(subject: string, from: string, body: string, ruleset: string) -> Classification {
     client "openai/gpt-4o"
     prompt #"
     classify the following email body as spam or not spam
 
+    use the following rules to classify the email:
+
+    <ruleset>
+    {{ ruleset }}
+    </ruleset>
+
     {{ _.role('user') }}
+
+    Here's the email:
 
     <subject>
     {{ subject }}
@@ -51,6 +58,12 @@ function Classify(subject: string, from: string, body: string, ruleset: string) 
     {{ body }}
     </body>
 
+    use the following rules to classify the email:
+
+    <ruleset>
+    {{ ruleset }}
+    </ruleset>
+
     {{ctx.output_format}}
     "#
 }
@@ -61,10 +74,18 @@ test ClassifiesUrgent2FA {
         subject "Your verification code"
         from "noreply@github.com"
         body "Your GitHub verification code is: 123456. This code will expire in 10 minutes."
-        ruleset "Authentication codes should be shown immediately"
+        ruleset #"
+- Authentication codes should be shown immediately
+- Newsletters are low priority
+- Meeting requests should be replied to automatically with calendar link cal.com/1234567890
+- You should draft replies for meeting requests
+- Security alerts should be shown immediately
+- You should show the user the message immediately
+- Work-related emails with deadlines are high priority
+        "#
     }
-    @@assert(classification, {{this.classification == "notify_immediately"}})
-    @@assert(has_message, {{this.message | length > 0}})
+    @@assert(classification, {{this.classification.classification == "notify_immediately"}})
+    @@assert(has_code, {{"123456" in this.classification.message}})
 }
 
 test ClassifiesNewsletterAsReadLater {
@@ -73,9 +94,17 @@ test ClassifiesNewsletterAsReadLater {
         subject "Weekly Tech Newsletter"
         from "newsletter@techcompany.com"
         body "Here's this week's top tech news and insights from our team..."
-        ruleset "Newsletters are low priority"
+        ruleset #"
+            - Authentication codes should be shown immediately
+            - Newsletters are low priority
+            - Meeting requests should be replied to automatically with calendar link cal.com/1234567890
+            - You should draft replies for meeting requests
+            - Security alerts should be shown immediately
+            - You should show the user the message immediately
+            - Work-related emails with deadlines are high priority
+        "#
     }
-    @@assert(classification, {{this.classification == "read_later"}})
+    @@assert(classification, {{this.classification.classification == "read_later"}})
 }
 
 test ClassifiesDraftReply {
@@ -84,9 +113,18 @@ test ClassifiesDraftReply {
         subject "Meeting request for project discussion"
         from "colleague@company.com"
         body "Hi, would you like to schedule a meeting to discuss the new project? I'm available Tuesday or Wednesday afternoon."
-        ruleset "Meeting requests should be replied to automatically with calendar link. You should draft replies for meeting requests."
+        ruleset #"
+            - Authentication codes should be shown immediately
+            - Newsletters are low priority
+            - Meeting requests should be replied to automatically with calendar link cal.com/1234567890
+            - You should draft replies for meeting requests
+            - Security alerts should be shown immediately
+            - You should show the user the message immediately
+            - Work-related emails with deadlines are high priority
+        "#
     }
-    @@assert(classification, {{this.classification == "read_today" or this.classification == "draft_reply"}})
+    @@assert(classification, {{this.classification.classification == "draft_reply"}})
+    @@assert(has_cal_link, {{"cal.com/1234567890" in this.classification.body}})
 }
 
 test ClassifiesNotifyImmediately {
@@ -95,10 +133,17 @@ test ClassifiesNotifyImmediately {
         subject "Security alert: New login detected"
         from "security@company.com"
         body "We detected a new login to your account from an unrecognized device. If this wasn't you, please secure your account immediately."
-        ruleset "Security alerts should be shown immediately"
+        ruleset #"
+            - Authentication codes should be shown immediately
+            - Newsletters are low priority
+            - Meeting requests should be replied to automatically with calendar link cal.com/1234567890
+            - You should draft replies for meeting requests
+            - Security alerts should be shown immediately
+            - You should show the user the message immediately
+            - Work-related emails with deadlines are high priority
+        "#
     }
-    @@assert(classification, {{this.classification == "notify_immediately"}})
-    @@assert(has_message, {{this.message | length > 0}})
+    @@assert(classification, {{this.classification.classification == "notify_immediately"}})
 }
 
 test ClassifiesReadToday {
@@ -107,7 +152,15 @@ test ClassifiesReadToday {
         subject "Project deadline reminder"
         from "manager@company.com"
         body "Just a reminder that the project deliverables are due tomorrow. Please let me know if you need any help."
-        ruleset "Work-related emails with deadlines are high priority"
+        ruleset #"
+            - Authentication codes should be shown immediately
+            - Newsletters are low priority
+            - Meeting requests should be replied to automatically with calendar link cal.com/1234567890
+            - You should draft replies for meeting requests
+            - Security alerts should be shown immediately
+            - You should show the user the message immediately
+            - Work-related emails with deadlines are high priority  
+        "#
     }
-    @@assert(classification, {{this.classification == "read_today"}})
+    @@assert(classification, {{this.classification.classification == "read_today"}})
 }

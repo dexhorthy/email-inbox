@@ -1,5 +1,4 @@
 import { HumanLayer } from "@humanlayer/sdk"
-import type { DraftReplyClassifierResult } from "../baml_client"
 
 const humanLayer = new HumanLayer()
 
@@ -12,12 +11,12 @@ export async function contactHuman(message: string): Promise<string> {
   return response
 }
 
-export async function getDraftFeedback(
-  data: DraftReplyClassifierResult & {
-    from: string
-    subject: string
-  },
-): Promise<boolean> {
+export async function getDraftFeedback(data: {
+  summary: string
+  body: string
+  from: string
+  subject: string
+}): Promise<boolean> {
   const response = await humanLayer.fetchHumanApproval({
     spec: {
       fn: "DraftReplyClassifierResult",

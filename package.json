@@ -3,28 +3,20 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
-
         "baml:generate": "baml-cli generate",
-
         "typecheck": "tsc --noEmit",
-
         "lint:fix": "biome check src/ --write",
         "lint:fix:unsafe": "biome check src/ --write --unsafe",
         "lint": "biome check src/",
-
-        "fix": "bun run baml:generate && bun run lint:fix",
+        "fix": "bun run baml:generate && bun run lint:fix:unsafe",
         "check": "bun run baml:generate && bun run typecheck && bun run lint",
-
         "test:baml": "baml-cli test",
         "test:unit": "bun run src/test/test.ts",
         "test:e2e": "bun test ./src/test/test-e2e-email-parsing.ts --timeout 120000",
-        "test": "bun run test:baml && bun run test:unit && bun run test:e2e",
-
+        "test": "bun run test:baml && bun run test:unit",
         "dev": "bun run fix && bun run src/cli.ts process --num-records 1",
-
         "githooks": "echo 'bun run pre-push' > .git/hooks/pre-push && chmod +x .git/hooks/pre-push",
-
-        "pre-push": "bun run check && bun run test"
+        "pre-push": "bun run check && bun run test && bun run test:e2e"
     },
     "dependencies": {
         "@boundaryml/baml": "latest",
@@ -43,6 +35,7 @@
     },
     "devDependencies": {
         "@biomejs/biome": "latest",
+        "@types/bun": "^1.2.15",
         "@types/express": "latest",
         "@types/node": "latest",
         "@typescript-eslint/eslint-plugin": "latest",

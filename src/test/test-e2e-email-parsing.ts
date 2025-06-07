@@ -131,28 +131,31 @@ describe("Email Parsing E2E Tests", () => {
   })
 
   describe("Body Parsing", () => {
-    test.each(testData.messageIds)("should parse body content for message %s", async (messageId: string) => {
-      const email = await gmail.users.messages.get({
-        userId: "me",
-        id: messageId,
-      })
+    test.each(testData.messageIds)(
+      "should parse body content for message %s",
+      async (messageId: string) => {
+        const email = await gmail.users.messages.get({
+          userId: "me",
+          id: messageId,
+        })
 
-      const body = parseEmailBody(email.data.payload!)
+        const body = parseEmailBody(email.data.payload!)
 
-      // At least one of text or html should be present
-      expect(body.text.length > 0 || body.html.length > 0).toBe(true)
+        // At least one of text or html should be present
+        expect(body.text.length > 0 || body.html.length > 0).toBe(true)
 
-      console.log(`📄 Body for ${messageId}:`)
-      console.log(`   Text length: ${body.text.length} chars`)
-      console.log(`   HTML length: ${body.html.length} chars`)
+        console.log(`📄 Body for ${messageId}:`)
+        console.log(`   Text length: ${body.text.length} chars`)
+        console.log(`   HTML length: ${body.html.length} chars`)
 
-      if (body.text.length > 0) {
-        console.log(`   Text preview: ${body.text.substring(0, 100)}...`)
-      }
-      if (body.html.length > 0) {
-        console.log(`   HTML preview: ${body.html.substring(0, 100)}...`)
-      }
-    })
+        if (body.text.length > 0) {
+          console.log(`   Text preview: ${body.text.substring(0, 100)}...`)
+        }
+        if (body.html.length > 0) {
+          console.log(`   HTML preview: ${body.html.substring(0, 100)}...`)
+        }
+      },
+    )
 
     test("should handle emails with no body content", async () => {
       // Test with empty payload
@@ -201,7 +204,7 @@ describe("Email Parsing E2E Tests", () => {
       expect(typeof result.text).toBe("string")
       expect(typeof result.html).toBe("string")
 
-      console.log(`📝 Markdown conversion test:`)
+      console.log("📝 Markdown conversion test:")
       console.log(`   Text input: ${testText}`)
       console.log(`   Text output: ${result.text}`)
       console.log(`   HTML input: ${testHtml}`)

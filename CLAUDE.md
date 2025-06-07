@@ -32,6 +32,16 @@ because you miss a lot of delicate logic which then causes you to add more bad c
 - NEVER edit the files in baml_client, instead edit the baml files in baml_src/ and run `bun run baml:generate` to update the baml_client
 - you may occasionally read files in baml_client to understand the types and codebase, but NEVER edit them
 
+
+### Testing with BAML
+
+- by default, we run with BAML_LOG=off
+- in the off chance you can see the logs, you can set BAML_LOG=info for a specific command, e.g.
+
+```bash
+BAML_LOG=info bunx baml-cli test --include NameOfTestToTarget
+```
+
 ## 📚 Other Useful Resources
 
 - **`e2e-gmail-tests.md`** - Complete setup guide for running E2E email parsing tests with Gmail API credentials

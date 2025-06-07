@@ -1,5 +1,7 @@
 # evals.md — Structuring Evals in LLM Projects
 
+source: https://www.youtube.com/watch?v=-N6MajRfqYw
+
 > **Purpose**  
 > A concise architecture note for Claude / Codex agents joining a new project.  
 > It explains *why* evals matter, *when* to add them, and *how* to keep them lean, fast, and actionable.

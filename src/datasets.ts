@@ -44,6 +44,7 @@ export interface EmailDataPoint {
       | "read_later"
       | "notify_immediately"
       | "draft_reply"
+      | "try_unsubscribe"
     summary?: string
     message?: string
   }
@@ -61,6 +62,7 @@ export interface RunMetadata {
     read_later: number
     notify_immediately: number
     draft_reply: number
+    try_unsubscribe: number
   }
 }
 
@@ -149,6 +151,7 @@ export class DatasetManager {
         read_later: 0,
         notify_immediately: 0,
         draft_reply: 0,
+        try_unsubscribe: 0,
       },
     }
 

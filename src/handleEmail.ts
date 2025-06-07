@@ -225,7 +225,7 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
 
   console.log("\n📌 Classification Result")
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-  switch (classification.classification) {
+  switch (classification.classification.classification) {
     case "read_today":
       console.log("📌 Labeling as: Read Today")
       await labelEmail(emailInfo.id!, "@read_today")
@@ -238,34 +238,35 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
       break
     case "notify_immediately":
       console.log("🔔 Important: Requires immediate attention")
-      await contactHuman(classification.message)
+      await contactHuman(classification.classification.message)
       break
     case "draft_reply":
       console.log("✍️ Drafting reply...")
       await getDraftFeedback({
         from: from ?? "Unknown Sender",
         subject: subject ?? "Unknown Subject",
-        summary: classification.summary,
-        body: classification.body,
-        classification: "draft_reply",
+        summary: classification.classification.summary,
+        body: classification.classification.body,
       })
       break
   }
 
   // Update final classification
-  if (classification.classification === "draft_reply") {
+  if (classification.classification.classification === "draft_reply") {
     emailData.final_classification = {
-      category: classification.classification,
-      summary: classification.summary,
+      category: classification.classification.classification,
+      summary: classification.classification.summary,
     }
-  } else if (classification.classification === "notify_immediately") {
+  } else if (
+    classification.classification.classification === "notify_immediately"
+  ) {
     emailData.final_classification = {
-      category: classification.classification,
-      message: classification.message,
+      category: classification.classification.classification,
+      message: classification.classification.message,
     }
   } else {
     emailData.final_classification = {
-      category: classification.classification,
+      category: classification.classification.classification,
     }
   }
 

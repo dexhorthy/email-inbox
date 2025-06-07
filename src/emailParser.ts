@@ -162,9 +162,9 @@ export async function parseEmailById(
     try {
       const headers = extractHeaders(payload)
       envelope = {
-        subject: headers.subject,
-        from: headers.from,
-        date: headers.date,
+        subject: headers.subject || undefined,
+        from: headers.from || undefined,
+        date: headers.date || undefined,
         messageId: messageId, // Use Gmail message ID
       }
     } catch (error) {
