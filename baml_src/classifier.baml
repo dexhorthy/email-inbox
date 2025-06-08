@@ -27,21 +27,11 @@ class TryUnsubscribe {
     unsubscribe_button_url string? @description("The url of the unsubscribe button")
 }
 
-class ClassificationExecuteCode {
-    classification "execute_code" @description("choose this if you need to execute custom code to process the email")
-    instructions string @description(#"
-        detailed markdown instructions for the coding agent to execute, 
-        including all context from the email, rules being triggered, examples, and any other relevant information
-
-        the coding agent will have access to various env vars and secrets and can integrate with external services 
-        like google calendar, resend, etc
-    "#)
-}
 
 
 class Classification {
     relevant_rules string[] @description("exact verbatims of one or more rules that were used to classify the email")
-    classification ReadToday | ReadLater | NotifyHumanImmediately | DraftReply | TryUnsubscribe | ClassificationExecuteCode
+    classification ReadToday | ReadLater | NotifyHumanImmediately | DraftReply | TryUnsubscribe
 }
 
 
@@ -56,11 +46,6 @@ function Classify(subject: string, from: string, body: string, ruleset: string) 
     {{ ruleset }}
     </ruleset>
 
-    for code execution, you have access to the following env vars:
-
-    <available_env_vars>
-    {{ available_env_vars | join("\n") }}
-    </available_env_vars>
 
     {{ _.role('user') }}
 

@@ -11,7 +11,7 @@ source: https://www.youtube.com/watch?v=-N6MajRfqYw
 ## 1 · Why Evals?
 
 * Anchor model work in reality – surface regressions early.  
-* Turn “I think it’s better” into **measurable** improvement.  
+* Turn "I think it's better" into **measurable** improvement.  
 * Enable CI/CD-style development loops (change → run evals → merge if pass).  
 
 ---
@@ -20,110 +20,113 @@ source: https://www.youtube.com/watch?v=-N6MajRfqYw
 
 | Stage | What to do | Goal |
 |-------|------------|------|
-| **Idea → Prototype** | *Vibe‑check* in a playground. Manually inspect ~10 diverse cases. | Build mental model of “good vs bad”. |
+| **Idea → Prototype** | *Vibe‑check* in a playground. Manually inspect ~10 diverse cases. | Build mental model of "good vs bad". |
 | **Prototype → First users** | Ship! Log prod inputs/outputs + user complaints. | Gather real failure modes. |
 | **First users → Growing team** | Turn logged cases into a **golden set** (exact expected outputs). Add a few automated tests. | Catch obvious regressions. |
 | **Mature product** | Expand test pyramid (unit ≫ integration ≫ e2e). Automate runtime guards / self‑corrections. | Sustain quality while shipping fast. |
 
 ---
 
-## 3 · Best‑Practice Checklist
+## 3 · Start Simple, Add Complexity Later
 
-### 3.1 Prefer Categorical Metrics  
-*Avoid 1‑10 “confidence scores”.*  
-Use enums / tags that directly flag issues, e.g.:
+### 3.1 Vibe-Check First
+*Manual inspection beats premature automation.*
+- Run your system on ~10 diverse cases
+- Manually review outputs, build intuition for "good vs bad"
+- Look for obvious patterns and failure modes
 
-```python
-class Pacing(str, Enum):
-    SLOW   = "slow"
-    MEDIUM = "medium"
-    FAST   = "fast"
-```
+### 3.2 Log Everything
+*Store inputs/outputs from every run.*
+- Capture real usage data automatically  
+- User complaints become your test cases
+- No need to structure it yet - just save it
 
-### 3.2 Follow the Testing Pyramid  
-
-```
-many ►   Unit tests        (functions, prompts, tools)  
-some  ►  Integration tests (2–3 steps wired together)  
-few   ►  End‑to‑end tests  (full user flow)  
-```
-
-### 3.3 Emit Structured Outputs  
-
-Design prompts to return JSON (or BAML / Pydantic models).  
-Granular assertions become trivial:
-
-```python
-plan = gen_lesson_plan(topic="Intro to AI")
-assert plan.estimated_cost < 5
-assert plan.pacing in Pacing
-```
-
-### 3.4 Probe Intermediate Steps  
-
-Expose or mock sub‑steps:
-
-```text
-User → intent_classifier → products_lookup → answer_generator
-```
-
-Test each box in isolation **but also** record its output during e2e tests.
-
-### 3.5 Continuously Expand the Golden Dataset  
-
-1. Log input output pairs during general execution.
-2. When a bug appears, add that case (with correct output) to your golden set.  
-3. Re‑run golden set on every PR.
-
-### 3.6 Diff & Visualize  
-
+### 3.3 Diff & Visualize  
+*Simple dashboards beat complex metrics.*
 Generate side‑by‑side diffs of old vs new outputs.  
-Even a simple Next.js page that lists changed tests accelerates review.
+Even a basic Next.js page that shows "what changed" accelerates review.
 
-### 3.7 Add Deterministic Guards  
-
-Use plain code to validate numeric relations:
+### 3.4 Prefer Categorical Metrics  
+*Avoid 1‑10 "confidence scores".*  
+Use simple enums that directly flag issues:
 
 ```python
-assert row.qty * row.price == pytest.approx(row.market_value, rel=1e-3)
+class Result(str, Enum):
+    SPAM = "spam"
+    READ_TODAY = "read_today" 
+    READ_LATER = "read_later"
 ```
 
-If a guard fails, auto‑flag or route to a “fix‑up” LLM.
+### 3.5 Emit Structured Outputs  
+Design prompts to return JSON (or BAML models).  
+Simple assertions become possible:
+
+```python
+classification = classify_email(subject, body)
+assert classification.result in Result
+assert classification.result != "spam" if "2FA" in subject
+```
 
 ---
 
-## 4 · Mini Example — Lesson‑Plan Eval
+## 4 · Advanced Techniques (Optional)
+
+### 4.1 Golden Dataset  
+*When you have time for proper test infrastructure:*
+1. Turn logged cases into exact expected outputs
+2. Re‑run golden set on every PR
+3. Expand when bugs appear
+
+### 4.2 Testing Pyramid  
+```
+many ►   Unit tests        (individual functions)  
+some  ►  Integration tests (2–3 steps together)  
+few   ►  End‑to‑end tests  (full user flow)  
+```
+
+### 4.3 Deterministic Guards (Optional)
+*For critical validations:*
+```python
+# 2FA emails must be urgent
+if "verification code" in email.subject.lower():
+    assert classification.result == "notify_immediately"
+```
+
+### 4.4 Probe Intermediate Steps  
+Test each component in isolation when debugging complex pipelines.
+
+---
+
+## 5 · Mini Example — Email Classification Eval
 
 ```python
 from dataclasses import dataclass
 from enum import Enum
 
-class Pacing(str, Enum):
-    SLOW   = "slow"
-    MEDIUM = "medium"
-    FAST   = "fast"
+class Classification(str, Enum):
+    SPAM = "spam"
+    READ_TODAY = "read_today"
+    READ_LATER = "read_later"
+    NOTIFY_IMMEDIATELY = "notify_immediately"
 
 @dataclass
-class LessonPlan:
-    title: str
-    pacing: Pacing
-    estimated_cost: float
-    objectives: list[str]
-    bias_flags: list[str]
+class EmailResult:
+    classification: Classification
+    is_spam: bool
+    confidence: str
 
-def test_lesson_plan():
-    plan = gen_lesson_plan("Fractions for 3rd grade")
-    assert plan.pacing != Pacing.FAST
-    assert plan.estimated_cost <= 5.0
-    assert plan.bias_flags == []
-    assert len(plan.objectives) >= 3
+def test_email_classification():
+    result = classify_email("Your verification code: 123456", "security@bank.com")
+    assert result.classification == Classification.NOTIFY_IMMEDIATELY
+    assert result.is_spam == False
+    assert "2FA" in result.reasoning or "verification" in result.reasoning
 ```
 
 Add this test to your CI; failures block the merge.
 
 ---
 
-## 5 · Conclusion
+## 6 · Conclusion
 
 *Start tiny, ship, then tighten.*  
 Evals are living assets—versioned with code, expanded with every real‑world edge case.  

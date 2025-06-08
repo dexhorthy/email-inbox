@@ -320,11 +320,6 @@ export async function handleEmailWithDependencies(
   console.log("\n📌 Classification Result")
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
   switch (classification.classification.classification) {
-    case "execute_code":
-      // todo switch to coding agent
-      console.log("🔍 Executing code...")
-      console.log("SKIPPING")
-      break
     case "read_today":
       if (isTestMode) {
         console.log("📌 Final Decision: READ TODAY")
