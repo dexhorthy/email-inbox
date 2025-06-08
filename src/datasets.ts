@@ -45,6 +45,7 @@ export interface EmailDataPoint {
       | "notify_immediately"
       | "draft_reply"
       | "try_unsubscribe"
+      | "execute_code"
     summary?: string
     message?: string
   }

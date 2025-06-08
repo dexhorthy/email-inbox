@@ -6,10 +6,12 @@ class Package {
 
 class ExecuteCode {
     intent "execute_code" @description("choose this if you need to execute custom code to process the email")
+    thought string @description("your thought process for why you need to execute this code")
     code string @description("The typescript code to execute")
-    packages Package[] @description("a list of npm packages and versions to install")
-    env_vars string[] @description("a list of environment variables to set")
+    packages Package[] @description("a list of npm packages and versions to install. if you code imports a package, you must include it here.")
+    env_vars string[] @description("a list of environment variables to set. if you code uses an environment variable from process.env, you must include it here.")
 }
+
 
 class EnvVar {
     name string
@@ -28,11 +30,14 @@ function CodingAgentDetermineNextStep(
     thread: string,
     ruleset: string,
     available_env_vars: EnvVar[],
+    now: string,
 ) -> CodingTools  | HumanTools {
     client "anthropic/claude-sonnet-4-20250514"
 
     prompt #"
         {{ _.role("system") }}
+
+        {{ BaseSystemPrompt(now) }}
 
         You are a helpful coding agent that can execute code to process an email.
 
@@ -56,24 +61,22 @@ function CodingAgentDetermineNextStep(
         }
         </example_code>
 
-        Your ruleset is:
 
-        <ruleset>
-        {{ ruleset }}
-        </ruleset>
+        <coding_guidelines>
+        - you must write your code in typescript
+        - do not hallucinate packages
+        - do not hallucinate env vars
+        - do not swallow errors - if someting goes wrong you want the whole stack trace
+        - add plenty of logging to debug what you're doing
+        </coding_guidelines>
 
+        {{ _.role("user") }}
 
         You are working on the following thread:
 
         {{ thread }}
 
         What should the next step be?
-
-        dont forget to follow the rules:
-
-        <ruleset>
-        {{ ruleset }}
-        </ruleset>
 
         you have the following env vars available to you:
 
