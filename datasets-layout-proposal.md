@@ -1,90 +1,50 @@
-# Dataset Structure for Development
+# Drift Detection: Dead Simple
 
-## Goal: Start Building Our Dataset 
+## The One Thing We Track
 
-**Priority**: Create directory structure → start collecting examples → build playground for vibe-checking
+**Question**: Did the model change its mind about the same email?
 
-## Simple Structure to Start
+**Data**: Store every run, group emails by content hash, compare classifications.
 
+**Alert**: When same email gets different results across runs.
+
+That's it.
+
+## Simpler Structure
+
+**Current (over-engineered):**
 ```
 datasets/
-├── runs/                  # Each CLI run gets a timestamped folder
-│   └── run-{timestamp}/
-│       ├── meta.json      # Run context (rules version, model version, etc)
-│       └── emails/        # One JSON file per email processed
-│           └── {message-id}.json
-├── golden/                # Hand-picked examples for testing
-│   ├── spam-examples/
-│   ├── 2fa-examples/  
-│   └── edge-cases/
-└── index.json            # Simple list of all runs for dashboard
+├── runs/run-{timestamp}/
+│   ├── meta.json           # 🗑️ complex metadata
+│   └── emails/{id}.json    # 🗑️ full email data
+├── emails/by-hash/         # 🗑️ cross-references  
+└── index.json             # 🗑️ global index
 ```
 
-**Key Features:**
-- Each CLI run saves processing results automatically
-- Simple file-per-email structure (easy to browse)
-- Content hashing for finding duplicate emails across runs
-- Minimal structure to start, can evolve
+**Simplified:**
+```
+datasets/
+└── {content-hash}.json    # One file per unique email
+```
 
-## Data Structure
-
-### Run Metadata (`meta.json`)
+Each file contains:
 ```json
 {
-  "run_id": "run-2025-06-07T04-25-03-170Z",
-  "timestamp": "2025-06-07T04:25:03.170Z",
-  "context": {
-    "rules_version": "sha256-abc123",
-    "model_version": "gpt-4o-2024-08-06",
-    "cli_args": "--num-records 5"
-  },
-  "stats": {
-    "emails_processed": 5,
-    "duration_ms": 45000
-  }
+  "hash": "abc123",
+  "subject": "Your 2FA code", 
+  "from": "security@example.com",
+  "classifications": [
+    {"timestamp": "2025-06-07", "result": "notify_immediately"},
+    {"timestamp": "2025-06-08", "result": "read_later"}  // ⚠️ DRIFT!
+  ]
 }
 ```
 
-### Email Processing Result (`emails/{message-id}.json`)
-```json
-{
-  "id": "19abcd123",
-  "content_hash": "sha256-abc123def456",
-  "run_id": "run-2025-06-07T04-25-03-170Z",
-  "timestamp": "2025-06-07T04:25:15.123Z",
-  
-  "envelope": {
-    "subject": "The Meme Party",
-    "from": "meme-mail@mail.beehiiv.com",
-    "messageId": "19abcd123"
-  },
-  
-  "content": {
-    "text": "Sup Memelords...",
-    "html": "<html>...</html>"
-  },
-  
-  "spam_analysis": {
-    "is_spam": false,
-    "high_confidence": true,
-    "spam_rules_matched": []
-  },
-  
-  "final_classification": {
-    "category": "read_later",
-    "summary": "Meme newsletter content"
-  },
-  
-  "human_interaction": {
-    "approved": true,
-    "feedback": null
-  }
-}
-```
+**Drift detection**: Look for arrays with different `result` values.
 
-## Implementation Plan
-
-**Step 1**: Update `datasets.ts` to create this structure when CLI runs
-**Step 2**: Add content hashing to detect duplicate emails across runs  
-**Step 3**: Build simple Next.js dashboard to browse results
-**Step 4**: Add golden dataset collection for testing
+## Benefits
+- ✅ No complex directory structure  
+- ✅ No redundant metadata
+- ✅ Drift detection in one file scan
+- ✅ Easy to implement dashboard

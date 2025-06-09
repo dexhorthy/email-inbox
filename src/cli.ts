@@ -6,17 +6,26 @@ import { agentops } from "agentops"
 import { Command } from "commander"
 import dotenv from "dotenv"
 import type { gmail_v1 } from "googleapis"
-import { google } from "googleapis"
-import { DatasetManager } from "./datasets"
+import { SimpleDatasetManager } from "./datasets-simple"
+import {
+  createGmailClient,
+  extractHeaders,
+  parseEmailBody,
+} from "./emailParser"
 import {
   type EmailFetcher,
+  EmailProcessor,
+  FileRulesManager,
   LastEmailFetcher,
   MessageIdEmailFetcher,
+  NoOpDatasetWriter,
   NoOpGmailLabeler,
   NoOpHumanApprover,
   RealDatasetWriter,
   RealGmailLabeler,
   RealHumanApprover,
+  type RulesManager,
+  getRulesFilePath,
   handleEmailWithDependencies,
   handleOneEmail,
   handleOneEmailWithoutApproval,
@@ -42,54 +51,9 @@ interface GmailHeader {
   value: string
 }
 
-function getEmailBody(parts: gmail_v1.Schema$MessagePart[] | undefined): {
-  plain?: string
-  html?: string
-} {
-  if (!parts) return {}
-
-  const body: { plain?: string; html?: string } = {}
-
-  for (const part of parts) {
-    if (part.mimeType === "text/plain" && part.body?.data) {
-      body.plain = Buffer.from(part.body.data, "base64").toString("utf-8")
-    } else if (part.mimeType === "text/html" && part.body?.data) {
-      body.html = Buffer.from(part.body.data, "base64").toString("utf-8")
-    }
-
-    // Recursively check nested parts
-    if (part.parts) {
-      const nestedBody = getEmailBody(part.parts)
-      if (nestedBody.plain) body.plain = nestedBody.plain
-      if (nestedBody.html) body.html = nestedBody.html
-    }
-  }
-
-  return body
-}
-
 export async function cliDumpEmailsToFiles(numRecords = 10) {
   try {
-    // Read the token file
-    const tokenPath = path.join(process.cwd(), "gmail_token.json")
-    const tokenContent = await fs.readFile(tokenPath, "utf-8")
-    const credentials = JSON.parse(tokenContent)
-
-    // Create OAuth2 client
-    const oauth2Client = new google.auth.OAuth2(
-      credentials.client_id,
-      credentials.client_secret,
-      credentials.redirect_uri,
-    )
-
-    // Set credentials
-    oauth2Client.setCredentials({
-      access_token: credentials.access_token,
-      refresh_token: credentials.refresh_token,
-    })
-
-    // Create Gmail API client
-    const gmail = google.gmail({ version: "v1", auth: oauth2Client })
+    const gmail = await createGmailClient()
 
     // Get emails with specified limit
     const response = await gmail.users.messages.list({
@@ -112,11 +76,9 @@ export async function cliDumpEmailsToFiles(numRecords = 10) {
         format: "full", // Get the full message including body
       })
 
-      const headers = email.data.payload?.headers as GmailHeader[] | undefined
-      const subject =
-        headers?.find((h) => h.name === "Subject")?.value || "No Subject"
-      const from =
-        headers?.find((h) => h.name === "From")?.value || "Unknown Sender"
+      const headers = extractHeaders(email.data.payload!)
+      const subject = headers.subject || "No Subject"
+      const from = headers.from || "Unknown Sender"
 
       console.log(`📝 Subject: ${subject}`)
       console.log(`👤 From: ${from}`)
@@ -144,30 +106,11 @@ export async function cliDumpEmailsToFiles(numRecords = 10) {
 export async function cliDumpEmails(numRecords = 5) {
   try {
     // Start a new dataset run
-    const datasetManager = new DatasetManager()
+    const datasetManager = new SimpleDatasetManager()
     const runId = await datasetManager.startNewRun()
     console.log(`🗂️ Started dataset collection run: ${runId}`)
 
-    // Read the token file
-    const tokenPath = path.join(process.cwd(), "gmail_token.json")
-    const tokenContent = await fs.readFile(tokenPath, "utf-8")
-    const credentials = JSON.parse(tokenContent)
-
-    // Create OAuth2 client
-    const oauth2Client = new google.auth.OAuth2(
-      credentials.client_id,
-      credentials.client_secret,
-      credentials.redirect_uri,
-    )
-
-    // Set credentials
-    oauth2Client.setCredentials({
-      access_token: credentials.access_token,
-      refresh_token: credentials.refresh_token,
-    })
-
-    // Create Gmail API client
-    const gmail = google.gmail({ version: "v1", auth: oauth2Client })
+    const gmail = await createGmailClient()
 
     // Get emails with specified limit
     const response = await gmail.users.messages.list({
@@ -186,16 +129,13 @@ export async function cliDumpEmails(numRecords = 5) {
           format: "full", // Get the full message including body
         })
 
-        const headers = email.data.payload?.headers as GmailHeader[] | undefined
-        const subject =
-          headers?.find((h) => h.name === "Subject")?.value || "No Subject"
-        const from =
-          headers?.find((h) => h.name === "From")?.value || "Unknown Sender"
-        const date =
-          headers?.find((h) => h.name === "Date")?.value || "Unknown Date"
+        const headers = extractHeaders(email.data.payload!)
+        const subject = headers.subject || "No Subject"
+        const from = headers.from || "Unknown Sender"
+        const date = headers.date || "Unknown Date"
 
         // Get the email body
-        const body = getEmailBody(email.data.payload?.parts)
+        const body = parseEmailBody(email.data.payload!)
 
         return {
           id: message.id!,
@@ -203,7 +143,10 @@ export async function cliDumpEmails(numRecords = 5) {
           from,
           date,
           snippet: email.data.snippet,
-          body,
+          body: {
+            plain: body.text,
+            html: body.html,
+          },
         } as EmailMessage
       }),
     )
@@ -231,55 +174,6 @@ export async function cliDumpEmails(numRecords = 5) {
   }
 }
 
-async function labelLastEmailAsActions() {
-  try {
-    // Read the token file
-    const tokenPath = path.join(process.cwd(), "gmail_token.json")
-    const tokenContent = await fs.readFile(tokenPath, "utf-8")
-    const credentials = JSON.parse(tokenContent)
-
-    // Create OAuth2 client
-    const oauth2Client = new google.auth.OAuth2(
-      credentials.client_id,
-      credentials.client_secret,
-      credentials.redirect_uri,
-    )
-
-    // Set credentials
-    oauth2Client.setCredentials({
-      access_token: credentials.access_token,
-      refresh_token: credentials.refresh_token,
-    })
-
-    // Create Gmail API client
-    const gmail = google.gmail({ version: "v1", auth: oauth2Client })
-
-    // Get the most recent email
-    const response = await gmail.users.messages.list({
-      userId: "me",
-      maxResults: 1,
-      q: "in:inbox", // Only search in inbox
-    })
-
-    const messages = response.data.messages
-    if (!messages || messages.length === 0) {
-      console.log("No emails found in inbox")
-      return
-    }
-
-    const messageId = messages[0].id!
-
-    console.log("handling messages!")
-    for (const message of messages) {
-      await handleOneEmail(message)
-    }
-    console.log("done handling messages")
-  } catch (error) {
-    console.error("Error labeling email:", error)
-    throw error
-  }
-}
-
 if (require.main === module) {
   const program = new Command()
 
@@ -287,6 +181,11 @@ if (require.main === module) {
     .name("email-inbox")
     .description("CLI to process and classify emails")
     .version("1.0.0")
+    .option(
+      "-r, --rules-file <path>",
+      "Path to rules file (can also use EMAIL_RULES_FILE env var)",
+      getRulesFilePath(),
+    )
 
   program
     .command("process")
@@ -332,34 +231,15 @@ if (require.main === module) {
     .command("test-one")
     .description("Parse and classify a single email without human approval")
     .option("-m, --message-id <id>", "Specific Gmail message ID to process")
-    .action(async (options) => {
+    .action(async (options, command) => {
       if (process.env.AGENTOPS_API_KEY) {
         await agentops.init()
       }
 
       try {
-        // Read the token file
-        const tokenPath = path.join(process.cwd(), "gmail_token.json")
-        const tokenContent = await fs.readFile(tokenPath, "utf-8")
-        const credentials = JSON.parse(tokenContent)
+        const gmail = await createGmailClient()
 
-        // Create OAuth2 client
-        const oauth2Client = new google.auth.OAuth2(
-          credentials.client_id,
-          credentials.client_secret,
-          credentials.redirect_uri,
-        )
-
-        // Set credentials
-        oauth2Client.setCredentials({
-          access_token: credentials.access_token,
-          refresh_token: credentials.refresh_token,
-        })
-
-        // Create Gmail API client
-        const gmail = google.gmail({ version: "v1", auth: oauth2Client })
-
-        const datasetManager = new DatasetManager()
+        const datasetManager = new SimpleDatasetManager()
 
         let emailFetcher: EmailFetcher
         if (options.messageId) {
@@ -374,18 +254,105 @@ if (require.main === module) {
           emailFetcher = new LastEmailFetcher(gmail, 1)
         }
 
+        const rulesManager = new FileRulesManager(
+          command.parent?.opts().rulesFile ||
+            process.env.EMAIL_RULES_FILE ||
+            "src/rules.txt",
+        )
+        const processor = new EmailProcessor(
+          rulesManager,
+          gmail,
+          datasetManager,
+        )
+
         const gmailLabeler = new NoOpGmailLabeler()
         const humanApprover = new NoOpHumanApprover()
         const datasetWriter = new RealDatasetWriter(datasetManager)
 
-        await handleEmailWithDependencies(
+        await processor.processEmailWithDependencies(
           emailFetcher,
           gmailLabeler,
           humanApprover,
           datasetWriter,
-          gmail,
         )
         console.log("✅ Email processing complete")
+      } catch (error) {
+        console.error("Error:", error)
+        process.exit(1)
+      }
+    })
+
+  program
+    .command("test-many")
+    .description("Process multiple emails without human approval")
+    .option("-n, --num-records <number>", "Number of emails to process", "10")
+    .action(async (options, command) => {
+      if (process.env.AGENTOPS_API_KEY) {
+        await agentops.init()
+      }
+
+      try {
+        const numRecords = Number.parseInt(options.numRecords, 10)
+        if (Number.isNaN(numRecords) || numRecords < 1) {
+          console.error("❌ Number of records must be a positive integer")
+          process.exit(1)
+        }
+
+        console.log(
+          `🤖 Processing ${numRecords} emails without human approval...\n`,
+        )
+
+        const gmail = await createGmailClient()
+        const datasetManager = new SimpleDatasetManager()
+        const runId = await datasetManager.startNewRun()
+        console.log(`🗂️ Started dataset collection run: ${runId}`)
+
+        // Get emails with specified limit
+        const response = await gmail.users.messages.list({
+          userId: "me",
+          maxResults: numRecords,
+        })
+
+        const messages = response.data.messages || []
+        console.log(`📧 Found ${messages.length} emails to process\n`)
+
+        const rulesManager = new FileRulesManager(
+          command.parent?.opts().rulesFile ||
+            process.env.EMAIL_RULES_FILE ||
+            "src/rules.txt",
+        )
+        const processor = new EmailProcessor(
+          rulesManager,
+          gmail,
+          datasetManager,
+        )
+
+        const gmailLabeler = new NoOpGmailLabeler()
+        const humanApprover = new NoOpHumanApprover()
+        const datasetWriter = new RealDatasetWriter(datasetManager)
+
+        // Process each email
+        for (const [index, message] of messages.entries()) {
+          console.log(
+            `\n📬 Processing Email ${index + 1}/${messages.length} (ID: ${message.id})`,
+          )
+          console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+          try {
+            const emailFetcher = new MessageIdEmailFetcher(gmail, message.id!)
+
+            await processor.processEmailWithDependencies(
+              emailFetcher,
+              gmailLabeler,
+              humanApprover,
+              datasetWriter,
+            )
+          } catch (error) {
+            console.error(`❌ Error processing email ${message.id}:`, error)
+          }
+        }
+
+        console.log(`\n✅ Processed ${messages.length} emails successfully`)
       } catch (error) {
         console.error("Error:", error)
         process.exit(1)

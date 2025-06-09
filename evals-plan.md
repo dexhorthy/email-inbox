@@ -1,75 +1,56 @@
 # Email Inbox Evaluation Plan
 
-> **Focus**: Start dataset development with playground vibe-checking → structured evaluation pipeline
+> **Focus**: Dead simple drift detection - store every run, visualize changes over time
 
 ---
 
-## 🎯 IMMEDIATE PRIORITY: Dataset Development
+## 🎯 Core Evaluation Strategy: Drift Detection
 
-**The goal**: Create `datasets/` directory structure and start collecting email processing examples for evaluation.
+**The One Thing**: Track how model outputs change from run to run on the same emails.
 
-### Step 1: Create Dataset Structure
-```bash
-mkdir -p datasets/{runs,emails/by-hash,emails/by-message-id,golden,synthetic}
-touch datasets/index.json
-```
+### What We Have (✅ Working)
+- ✅ `datasets/runs/` - Every CLI run saves results with timestamps
+- ✅ Content hashing - Same emails get same hash across runs  
+- ✅ BAML unit tests - 13 tests covering edge cases
+- ✅ Real email processing with metadata
 
-### Step 2: Start Collecting Examples  
-- Run CLI to process emails → capture to `datasets/runs/`
-- Focus on interesting cases: spam/not-spam, urgent/not-urgent
-- Build playground for vibe-checking model outputs
-
----
-
-### Basic Testing Approach
-1. **BAML Unit Tests**: Add tests directly in `.baml` files for individual functions
-2. **Golden Dataset**: Save interesting examples for regression testing  
-3. **Playground Dashboard**: Simple Next.js page to browse results
+### What We Need
+- Simple dashboard to compare runs on same emails
+- Visual diff of classification changes over time
+- Alerts when critical emails (2FA, security) get misclassified
 
 ---
 
-## 📊 What We Need Right Now
+## 📊 Drift Detection Dashboard
 
-### Dataset Collection
-- Start running CLI → save outputs to `datasets/runs/`
-- Capture interesting cases: clear spam, borderline cases, 2FA codes
-- Build up examples for model evaluation
-
-### Basic Validation
-- Add simple BAML tests for obvious cases (spam detection, 2FA classification)
-- Create guards for critical misses (2FA → notify_immediately)
-
----
-
-## 🚀 Implementation Steps
-
-**Phase 1: Get Datasets Working**
-- Create `datasets/` directory structure  
-- Update CLI to save processing results
-- Add content hashing for deduplication
-- Build basic dashboard to browse results
-
-**Phase 2: Add Testing**
-- Write BAML unit tests for obvious cases
-- Create golden dataset from interesting examples
-- Add evaluation runner
-
-**Phase 3: Iterate**
-- Expand test coverage based on real failures
-- Add drift detection
-- Build comparison tools
-
----
-
-## 📁 Simplified File Structure
+**Single Page App**: Show how the same email gets classified differently across runs
 
 ```
-datasets/
-├── runs/           # CLI processing results
-├── golden/         # Hand-curated test cases  
-└── index.json     # Fast query index
-
-baml_src/           # Add tests here
-├── isSpam.baml     # + unit tests
-└── classifier.baml # + unit tests
+Run A (yesterday): email-hash-123 → "read_later"
+Run B (today):     email-hash-123 → "spam" 
+                   ⚠️  DRIFT DETECTED
 ```
+
+**Key Views**:
+1. **Run List**: All processing runs with summary stats
+2. **Email Comparison**: Same email, different runs, side-by-side
+3. **Drift Alerts**: When classifications change on same content
+
+---
+
+## 🚀 Next Steps (Keep It Simple)
+
+1. **Build Minimal Dashboard** 
+   - Read from `datasets/runs/` and `datasets/emails/by-hash/`
+   - Show run-to-run diffs for same email content
+   - Flag when 2FA/security emails get reclassified
+
+2. **Add Simple Alerts**
+   - Email → Spam (potential false positive)
+   - 2FA → Read Later (critical miss)
+
+3. **Manual Review Process**
+   - Flag suspicious drifts for human review
+   - Update rules based on review
+
+**That's it.** No complex confidence scoring, no ML evaluation metrics. Just: "did the model change its mind, and should we care?"

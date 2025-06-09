@@ -11,31 +11,24 @@ class DoneForNow {
   "#)
 }
 
-class RequestApprovalFromManager {
-  intent "request_approval_from_manager"
-  message string
-}
-
-class ProcessRefund {
-  intent "process_refund" @description("you can process a refund for a customer, always request approval from the manager before processing a refund")
-  order_id string
-  amount int | float
-  reason string
-}
-
-type HumanTools = ClarificationRequest | DoneForNow | RequestApprovalFromManager
-type CalculatorTools = AddTool | SubtractTool | MultiplyTool | DivideTool
-type CustomerSupportTools = ProcessRefund
+type HumanTools = ClarificationRequest | DoneForNow
 
 function DetermineNextStep(
-    thread: string 
-) -> HumanTools | CalculatorTools | CustomerSupportTools {
+    thread: string,
+    ruleset: string
+) -> Classification | HumanTools {
     client "openai/gpt-4o"
 
     prompt #"
         {{ _.role("system") }}
 
         You are a helpful assistant that can help with tasks.
+
+        Your ruleset is:
+
+        <ruleset>
+        {{ ruleset }}
+        </ruleset>
 
         {{ _.role("user") }}
 
@@ -44,6 +37,12 @@ function DetermineNextStep(
         {{ thread }}
 
         What should the next step be?
+
+        dont forget to follow the rules:
+
+        <ruleset>
+        {{ ruleset }}
+        </ruleset>
 
         {{ ctx.output_format }}
 
@@ -54,92 +53,21 @@ function DetermineNextStep(
         - ...
 
         {...} // schema
-    "#
-}
-
-
-test HelloWorld {
-  functions [DetermineNextStep]
-  args {
-    thread #"
-      <user_input>
-        hello!
-      </user_input>
-    "#
-  }
-  @@assert(intent, {{this.intent == "request_more_information"}})
-}
-
-test MathOperation {
-  functions [DetermineNextStep]
-  args {
-    thread #"
-      <user_input>
-        can you multiply 3 and 4?
-      </user_input>
-    "#
-  }
-  @@assert(intent, {{this.intent == "multiply"}})
-}
-
-test LongMath {
-  functions [DetermineNextStep]
-  args {
-    thread #"
-         <user_input>
-    can you multiply 3 and 4, then divide the result by 2 and then add 12 to that result?
-    </user_input>
-
-
-    <multiply>
-    a: 3
-    b: 4
-    </multiply>
-
-
-    <tool_response>
-    12
-    </tool_response>
-
-
-    <divide>
-    a: 12
-    b: 2
-    </divide>
-
-
-    <tool_response>
-    6
-    </tool_response>
-
-
-    <add>
-    a: 6
-    b: 12
-    </add>
-
-
-    <tool_response>
-    18
-    </tool_response>
 
     "#
-  }
-  @@assert(intent, {{this.intent == "done_for_now"}})
-  @@assert(answer, {{"18" in this.message}})
 }
 
-
-
-test MathOperationWithClarification {
+test NextStep {
   functions [DetermineNextStep]
+
   args {
     thread #"
-          <user_input>
-          can you multiply 3 and fe1iiaff10
-          </user_input>
-      "#
+      <initial_email>
+      </initial_email>
+
+
+    "#
+    ruleset #"
+    "#
   }
-  @@assert(intent, {{this.intent == "request_more_information"}})
 }
-        

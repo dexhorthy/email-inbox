@@ -27,6 +27,8 @@ class TryUnsubscribe {
     unsubscribe_button_url string? @description("The url of the unsubscribe button")
 }
 
+
+
 class Classification {
     relevant_rules string[] @description("exact verbatims of one or more rules that were used to classify the email")
     classification ReadToday | ReadLater | NotifyHumanImmediately | DraftReply | TryUnsubscribe
@@ -43,6 +45,7 @@ function Classify(subject: string, from: string, body: string, ruleset: string) 
     <ruleset>
     {{ ruleset }}
     </ruleset>
+
 
     {{ _.role('user') }}
 
@@ -163,4 +166,35 @@ test ClassifiesReadToday {
         "#
     }
     @@assert(classification, {{this.classification.classification == "read_today"}})
+}
+
+test ClassifiesMakeCalEvent {
+    functions [Classify]
+    args {
+        subject "Re: Meeting request for project discussion"
+        from "colleague@company.com"
+        body #"Great, I'm good to go for thursday at 2pm.
+
+        From: John Doe <john.doe@company.com>
+        To: Colleague <colleague@company.com>
+        Subject: Meeting request for project discussion
+
+        Are we still on to discuss the launch for next monday?
+
+        I think we have lunch scheduled thursday at 2pm, but 
+        we could use that time to discuss the launch instead if you wanna order
+        in and grab a whiteboard.
+
+        "#
+        ruleset #"
+            - Authentication codes should be shown immediately
+            - Newsletters are low priority
+            - Meeting requests should be replied to automatically with calendar link cal.com/1234567890
+            - if a meeting is CONFIRMED, you should make/modify a calendar event rather than sending the calendar link 
+            - You should draft replies for meeting requests
+            - Security alerts should be shown immediately
+            - You should show the user the message immediately
+            - Work-related emails with deadlines are high priority  
+        "#
+    }
 }

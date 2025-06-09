@@ -13,6 +13,8 @@ def email():
         "https://www.googleapis.com/auth/gmail.readonly",
         "https://www.googleapis.com/auth/gmail.compose",
         "https://www.googleapis.com/auth/gmail.modify",
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events",
     ]
     creds = None
     token_path = os.path.join(os.path.dirname(str(GMAIL_CREDS_PATH)), "gmail_token.json")
