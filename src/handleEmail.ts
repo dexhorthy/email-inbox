@@ -4,13 +4,7 @@ import { google } from "googleapis"
 import { b } from "../baml_client"
 import { checkWithHuman } from "./checkWithHuman"
 import { contactHuman, getDraftFeedback } from "./contactHuman"
-import {
-  DatasetManager,
-  type EmailDataPoint,
-  generateContentHash,
-  getCurrentRulesVersion,
-  getModelVersion,
-} from "./datasets"
+import { SimpleDatasetManager } from "./datasets-simple"
 import {
   convertToMarkdown,
   createGmailClient,
@@ -38,7 +32,14 @@ export interface HumanApprover {
 
 export interface DatasetWriter {
   startNewRun(): Promise<string>
-  saveEmailData(emailData: EmailDataPoint): Promise<void>
+  saveEmailClassification(
+    messageId: string,
+    subject: string | undefined,
+    from: string | undefined,
+    isSpam: boolean,
+    finalClassification: string,
+    markdown?: string,
+  ): Promise<void>
 }
 
 // Implementations
@@ -114,24 +115,32 @@ export class NoOpHumanApprover implements HumanApprover {
   }
 }
 
-export class RealDatasetWriter implements DatasetWriter {
-  constructor(private datasetManager: DatasetManager) {}
-
+export class NoOpDatasetWriter implements DatasetWriter {
   async startNewRun(): Promise<string> {
-    return await this.datasetManager.startNewRun()
+    return "test-run"
   }
 
-  async saveEmailData(emailData: EmailDataPoint): Promise<void> {
-    await this.datasetManager.saveEmailData(emailData)
+  async saveEmailClassification(
+    _messageId: string,
+    _subject: string | undefined,
+    _from: string | undefined,
+    _isSpam: boolean,
+    _finalClassification: string,
+    _markdown?: string,
+  ): Promise<void> {
+    // No-op for testing
   }
 }
 
-export async function loadRules(): Promise<string> {
-  try {
-    return await fs.readFile("src/rules.txt", "utf-8")
-  } catch (error) {
-    // If file doesn't exist, return default rules
-    return `Mark as spam all emails that:
+export class FileRulesManager implements RulesManager {
+  constructor(private rulesFilePath: string) {}
+
+  async loadRules(): Promise<string> {
+    try {
+      return await fs.readFile(this.rulesFilePath, "utf-8")
+    } catch (error) {
+      // If file doesn't exist, return default rules
+      const defaultRules = `Mark as spam all emails that:
 - are a cold outreach email
 - are a sales/marketing email e.g. for an e-commerce site. 
 
@@ -139,19 +148,121 @@ do NOT mark as spam emails that:
 - pertain to event notifications
 - contain an authentication/authorization code e.g. for 2FA
 - contain a "magic link" to sign in or similar.`
+      
+      // Create the file with default rules if it doesn't exist
+      await this.saveRules(defaultRules)
+      return defaultRules
+    }
+  }
+
+  async saveRules(rules: string): Promise<void> {
+    await fs.writeFile(this.rulesFilePath, rules, "utf-8")
   }
 }
 
+export class RealDatasetWriter implements DatasetWriter {
+  constructor(private datasetManager: SimpleDatasetManager) {}
+
+  async startNewRun(): Promise<string> {
+    return await this.datasetManager.startNewRun()
+  }
+
+  async saveEmailClassification(
+    messageId: string,
+    subject: string | undefined,
+    from: string | undefined,
+    isSpam: boolean,
+    finalClassification: string,
+    markdown?: string,
+  ): Promise<void> {
+    await this.datasetManager.saveEmailClassification(
+      messageId,
+      subject,
+      from,
+      isSpam,
+      finalClassification,
+      markdown,
+    )
+  }
+}
+
+export function getRulesFilePath(): string {
+  // Check environment variable first, then fall back to default
+  return process.env.EMAIL_RULES_FILE || "src/rules.txt"
+}
+
+export async function loadRules(): Promise<string> {
+  const rulesManager = new FileRulesManager(getRulesFilePath())
+  return await rulesManager.loadRules()
+}
+
 export async function saveRules(rules: string): Promise<void> {
-  await fs.writeFile("src/rules.txt", rules, "utf-8")
+  const rulesManager = new FileRulesManager(getRulesFilePath())
+  await rulesManager.saveRules(rules)
+}
+
+export class EmailProcessor {
+  constructor(
+    private rulesManager: RulesManager,
+    private gmail: gmail_v1.Gmail,
+    private datasetManager: SimpleDatasetManager,
+  ) {}
+
+  async processEmailWithDependencies(
+    emailFetcher: EmailFetcher,
+    gmailLabeler: GmailLabeler,
+    humanApprover: HumanApprover,
+    datasetWriter: DatasetWriter,
+  ) {
+    return await handleEmailWithDependencies(
+      emailFetcher,
+      gmailLabeler,
+      humanApprover,
+      datasetWriter,
+      this.gmail,
+      this.rulesManager,
+    )
+  }
+
+  async processOneEmailWithoutApproval(emailInfo: gmail_v1.Schema$Message) {
+    const emailFetcher = new MessageIdEmailFetcher(this.gmail, emailInfo.id!)
+    const gmailLabeler = new NoOpGmailLabeler()
+    const humanApprover = new NoOpHumanApprover()
+    const datasetWriter = new RealDatasetWriter(this.datasetManager)
+
+    console.log("🤖 Auto-classifying without human approval...")
+
+    await this.processEmailWithDependencies(
+      emailFetcher,
+      gmailLabeler,
+      humanApprover,
+      datasetWriter,
+    )
+  }
+
+  async processOneEmail(emailInfo: gmail_v1.Schema$Message) {
+    const emailFetcher = new MessageIdEmailFetcher(this.gmail, emailInfo.id!)
+    const gmailLabeler = new RealGmailLabeler(this.gmail)
+    const humanApprover = new RealHumanApprover()
+    const datasetWriter = new RealDatasetWriter(this.datasetManager)
+
+    console.log("🤔 Verifying classification with human...")
+
+    await this.processEmailWithDependencies(
+      emailFetcher,
+      gmailLabeler,
+      humanApprover,
+      datasetWriter,
+    )
+  }
 }
 
 // Initialize rules
-let rules = await loadRules()
+const rules = await loadRules()
 
 const gmail = await createGmailClient()
 
-const datasetManager = new DatasetManager()
+const datasetManager = new SimpleDatasetManager()
 
 export async function handleEmailWithDependencies(
   emailFetcher: EmailFetcher,
@@ -159,6 +270,7 @@ export async function handleEmailWithDependencies(
   humanApprover: HumanApprover,
   datasetWriter: DatasetWriter,
   gmail: gmail_v1.Gmail,
+  rulesManager: RulesManager,
 ) {
   // Start a new dataset run
   const runId = await datasetWriter.startNewRun()
@@ -178,38 +290,8 @@ export async function handleEmailWithDependencies(
   const from = headers?.find((h) => h.name === "From")?.value
   const date = headers?.find((h) => h.name === "Date")?.value
 
-  // Initialize email data point for dataset
-  const emailData: EmailDataPoint = {
-    id: emailInfo.id!,
-    timestamp: new Date().toISOString(),
-    content_hash: generateContentHash(subject || "", from || "", ""),
-    processing_context: {
-      rules_version: getCurrentRulesVersion(),
-      model_version: getModelVersion(),
-      processing_timestamp: new Date().toISOString(),
-    },
-    envelope: {
-      subject: subject || undefined,
-      from: from || undefined,
-      date: date || undefined,
-      messageId: emailInfo.id!,
-    },
-    content: {
-      text: "",
-      html: "",
-      markdown: "",
-    },
-    spam_analysis: {
-      is_spam: false,
-      high_confidence: false,
-      spam_rules_matched: [],
-      spammy_qualities: [],
-    },
-    final_classification: {
-      category: "read_later",
-    },
-    labels_applied: [],
-  }
+  // Track final classification for dataset
+  let finalClassification = "read_later"
 
   if (!email.data.payload) return
 
@@ -220,20 +302,6 @@ export async function handleEmailWithDependencies(
   body.text = markdownContent.text
   body.html = markdownContent.html
 
-  // Update dataset with content
-  emailData.content = {
-    text: body.text,
-    html: body.html,
-    markdown: body.html.length > body.text.length ? body.html : body.text,
-  }
-
-  // Update content hash with actual body content
-  emailData.content_hash = generateContentHash(
-    subject || "",
-    from || "",
-    body.html.length > body.text.length ? body.html : body.text,
-  )
-
   console.log("body", body)
 
   const envelope = `
@@ -242,15 +310,9 @@ export async function handleEmailWithDependencies(
 		Date: ${date}
 		`
 
+  // Load rules using the injected rules manager
+  const rules = await rulesManager.loadRules()
   const isSpam = await b.IsSpam(envelope, body.html, body.text, rules)
-
-  // Update dataset with spam analysis
-  emailData.spam_analysis = {
-    is_spam: isSpam.is_spam,
-    high_confidence: isSpam.high_confidence,
-    spam_rules_matched: isSpam.spam_rules_matched,
-    spammy_qualities: isSpam.spammy_qualities,
-  }
 
   console.log("\n🔍 Spam Analysis")
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -274,19 +336,10 @@ export async function handleEmailWithDependencies(
     existingRuleset: rules,
   })
 
-  // Update dataset with human interaction if it happened
-  if (humanApprover instanceof RealHumanApprover) {
-    emailData.human_interaction = {
-      timestamp: new Date().toISOString(),
-      approved,
-      updated_ruleset: updatedRuleset,
-    }
-  }
-
+  // Handle rule updates
   if (updatedRuleset) {
-    // Update rules file directly
-    await fs.writeFile("src/rules.txt", updatedRuleset, "utf-8")
-    rules = updatedRuleset
+    // Update rules using the injected rules manager
+    await rulesManager.saveRules(updatedRuleset)
   }
 
   if (isSpam.is_spam && approved) {
@@ -297,11 +350,17 @@ export async function handleEmailWithDependencies(
       console.log("🚫 Moving to spam folder...")
     }
     await gmailLabeler.labelEmail(emailInfo.id!, "SPAM")
-    emailData.final_classification = {
-      category: "spam",
-    }
-    emailData.labels_applied = isTestMode ? [] : ["SPAM"]
-    await datasetWriter.saveEmailData(emailData)
+    finalClassification = "spam"
+
+    // Save to dataset
+    await datasetWriter.saveEmailClassification(
+      emailInfo.id!,
+      subject,
+      from,
+      isSpam.is_spam,
+      finalClassification,
+      markdownContent.text,
+    )
     return
   }
 
@@ -327,7 +386,7 @@ export async function handleEmailWithDependencies(
         console.log("📌 Labeling as: Read Today")
       }
       await gmailLabeler.labelEmail(emailInfo.id!, "@read_today")
-      emailData.labels_applied = isTestMode ? [] : ["@read_today"]
+      finalClassification = "read_today"
       break
     case "read_later":
       if (isTestMode) {
@@ -336,7 +395,7 @@ export async function handleEmailWithDependencies(
         console.log("📌 Labeling as: Read Later")
       }
       await gmailLabeler.labelEmail(emailInfo.id!, "@read_later")
-      emailData.labels_applied = isTestMode ? [] : ["@read_later"]
+      finalClassification = "read_later"
       break
     case "notify_immediately":
       if (isTestMode) {
@@ -346,6 +405,7 @@ export async function handleEmailWithDependencies(
         console.log("🔔 Important: Requires immediate attention")
         await contactHuman(classification.classification.message)
       }
+      finalClassification = "notify_immediately"
       break
     case "draft_reply":
       if (isTestMode) {
@@ -360,41 +420,32 @@ export async function handleEmailWithDependencies(
           body: classification.classification.body,
         })
       }
+      finalClassification = "draft_reply"
       break
   }
 
-  // Update final classification
-  if (classification.classification.classification === "draft_reply") {
-    emailData.final_classification = {
-      category: classification.classification.classification,
-      summary: classification.classification.summary,
-    }
-  } else if (
-    classification.classification.classification === "notify_immediately"
-  ) {
-    emailData.final_classification = {
-      category: classification.classification.classification,
-      message: classification.classification.message,
-    }
-  } else {
-    emailData.final_classification = {
-      category: classification.classification.classification,
-    }
-  }
-
-  // Save email data to dataset
-  await datasetWriter.saveEmailData(emailData)
+  // Save to dataset
+  await datasetWriter.saveEmailClassification(
+    emailInfo.id!,
+    subject,
+    from,
+    isSpam.is_spam,
+    finalClassification,
+    markdownContent.text,
+  )
 
   console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 }
 
 export async function handleOneEmailWithoutApproval(
   emailInfo: gmail_v1.Schema$Message,
+  rulesManager?: RulesManager,
 ) {
   const emailFetcher = new MessageIdEmailFetcher(gmail, emailInfo.id!)
   const gmailLabeler = new NoOpGmailLabeler()
   const humanApprover = new NoOpHumanApprover()
   const datasetWriter = new RealDatasetWriter(datasetManager)
+  const rules = rulesManager || new FileRulesManager(getRulesFilePath())
 
   console.log("🤖 Auto-classifying without human approval...")
 
@@ -404,14 +455,19 @@ export async function handleOneEmailWithoutApproval(
     humanApprover,
     datasetWriter,
     gmail,
+    rules,
   )
 }
 
-export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
+export async function handleOneEmail(
+  emailInfo: gmail_v1.Schema$Message,
+  rulesManager?: RulesManager,
+) {
   const emailFetcher = new MessageIdEmailFetcher(gmail, emailInfo.id!)
   const gmailLabeler = new RealGmailLabeler(gmail)
   const humanApprover = new RealHumanApprover()
   const datasetWriter = new RealDatasetWriter(datasetManager)
+  const rules = rulesManager || new FileRulesManager(getRulesFilePath())
 
   console.log("🤔 Verifying classification with human...")
 
@@ -421,6 +477,7 @@ export async function handleOneEmail(emailInfo: gmail_v1.Schema$Message) {
     humanApprover,
     datasetWriter,
     gmail,
+    rules,
   )
 }
 

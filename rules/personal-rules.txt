@@ -1,0 +1,11 @@
+Mark as spam all emails that:
+- are from marketing lists or newsletters I didn't explicitly subscribe to
+- are cold sales/recruitment emails 
+- have excessive promotional language like "amazing deal", "limited time"
+- are from crypto/NFT/investment schemes
+
+do NOT mark as spam emails that:
+- are from GitHub, Gmail, or other services I use
+- contain authentication codes or security alerts
+- are from friends, family, or work colleagues
+- are from Y Combinator, Bookface, or startup-related content I'm interested in

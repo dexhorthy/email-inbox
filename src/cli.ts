@@ -6,7 +6,7 @@ import { agentops } from "agentops"
 import { Command } from "commander"
 import dotenv from "dotenv"
 import type { gmail_v1 } from "googleapis"
-import { DatasetManager } from "./datasets"
+import { SimpleDatasetManager } from "./datasets-simple"
 import {
   createGmailClient,
   extractHeaders,
@@ -14,13 +14,18 @@ import {
 } from "./emailParser"
 import {
   type EmailFetcher,
+  EmailProcessor,
+  FileRulesManager,
   LastEmailFetcher,
   MessageIdEmailFetcher,
+  NoOpDatasetWriter,
   NoOpGmailLabeler,
   NoOpHumanApprover,
   RealDatasetWriter,
   RealGmailLabeler,
   RealHumanApprover,
+  type RulesManager,
+  getRulesFilePath,
   handleEmailWithDependencies,
   handleOneEmail,
   handleOneEmailWithoutApproval,
@@ -101,7 +106,7 @@ export async function cliDumpEmailsToFiles(numRecords = 10) {
 export async function cliDumpEmails(numRecords = 5) {
   try {
     // Start a new dataset run
-    const datasetManager = new DatasetManager()
+    const datasetManager = new SimpleDatasetManager()
     const runId = await datasetManager.startNewRun()
     console.log(`🗂️ Started dataset collection run: ${runId}`)
 
@@ -176,6 +181,11 @@ if (require.main === module) {
     .name("email-inbox")
     .description("CLI to process and classify emails")
     .version("1.0.0")
+    .option(
+      "-r, --rules-file <path>",
+      "Path to rules file (can also use EMAIL_RULES_FILE env var)",
+      getRulesFilePath(),
+    )
 
   program
     .command("process")
@@ -221,7 +231,7 @@ if (require.main === module) {
     .command("test-one")
     .description("Parse and classify a single email without human approval")
     .option("-m, --message-id <id>", "Specific Gmail message ID to process")
-    .action(async (options) => {
+    .action(async (options, command) => {
       if (process.env.AGENTOPS_API_KEY) {
         await agentops.init()
       }
@@ -229,7 +239,7 @@ if (require.main === module) {
       try {
         const gmail = await createGmailClient()
 
-        const datasetManager = new DatasetManager()
+        const datasetManager = new SimpleDatasetManager()
 
         let emailFetcher: EmailFetcher
         if (options.messageId) {
@@ -244,18 +254,105 @@ if (require.main === module) {
           emailFetcher = new LastEmailFetcher(gmail, 1)
         }
 
+        const rulesManager = new FileRulesManager(
+          command.parent?.opts().rulesFile ||
+            process.env.EMAIL_RULES_FILE ||
+            "src/rules.txt",
+        )
+        const processor = new EmailProcessor(
+          rulesManager,
+          gmail,
+          datasetManager,
+        )
+
         const gmailLabeler = new NoOpGmailLabeler()
         const humanApprover = new NoOpHumanApprover()
         const datasetWriter = new RealDatasetWriter(datasetManager)
 
-        await handleEmailWithDependencies(
+        await processor.processEmailWithDependencies(
           emailFetcher,
           gmailLabeler,
           humanApprover,
           datasetWriter,
-          gmail,
         )
         console.log("✅ Email processing complete")
+      } catch (error) {
+        console.error("Error:", error)
+        process.exit(1)
+      }
+    })
+
+  program
+    .command("test-many")
+    .description("Process multiple emails without human approval")
+    .option("-n, --num-records <number>", "Number of emails to process", "10")
+    .action(async (options, command) => {
+      if (process.env.AGENTOPS_API_KEY) {
+        await agentops.init()
+      }
+
+      try {
+        const numRecords = Number.parseInt(options.numRecords, 10)
+        if (Number.isNaN(numRecords) || numRecords < 1) {
+          console.error("❌ Number of records must be a positive integer")
+          process.exit(1)
+        }
+
+        console.log(
+          `🤖 Processing ${numRecords} emails without human approval...\n`,
+        )
+
+        const gmail = await createGmailClient()
+        const datasetManager = new SimpleDatasetManager()
+        const runId = await datasetManager.startNewRun()
+        console.log(`🗂️ Started dataset collection run: ${runId}`)
+
+        // Get emails with specified limit
+        const response = await gmail.users.messages.list({
+          userId: "me",
+          maxResults: numRecords,
+        })
+
+        const messages = response.data.messages || []
+        console.log(`📧 Found ${messages.length} emails to process\n`)
+
+        const rulesManager = new FileRulesManager(
+          command.parent?.opts().rulesFile ||
+            process.env.EMAIL_RULES_FILE ||
+            "src/rules.txt",
+        )
+        const processor = new EmailProcessor(
+          rulesManager,
+          gmail,
+          datasetManager,
+        )
+
+        const gmailLabeler = new NoOpGmailLabeler()
+        const humanApprover = new NoOpHumanApprover()
+        const datasetWriter = new RealDatasetWriter(datasetManager)
+
+        // Process each email
+        for (const [index, message] of messages.entries()) {
+          console.log(
+            `\n📬 Processing Email ${index + 1}/${messages.length} (ID: ${message.id})`,
+          )
+          console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+          try {
+            const emailFetcher = new MessageIdEmailFetcher(gmail, message.id!)
+
+            await processor.processEmailWithDependencies(
+              emailFetcher,
+              gmailLabeler,
+              humanApprover,
+              datasetWriter,
+            )
+          } catch (error) {
+            console.error(`❌ Error processing email ${message.id}:`, error)
+          }
+        }
+
+        console.log(`\n✅ Processed ${messages.length} emails successfully`)
       } catch (error) {
         console.error("Error:", error)
         process.exit(1)

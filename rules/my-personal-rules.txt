@@ -1,0 +1,8 @@
+Mark as spam all emails that:
+- are a cold outreach email
+- are a sales/marketing email e.g. for an e-commerce site. 
+
+do NOT mark as spam emails that:
+- pertain to event notifications
+- contain an authentication/authorization code e.g. for 2FA
+- contain a "magic link" to sign in or similar.

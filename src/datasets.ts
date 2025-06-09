@@ -10,32 +10,19 @@ export interface ProcessingContext {
 }
 
 export interface EmailDataPoint {
-  id: string
+  message_id: string
   timestamp: string
-  content_hash: string
-  processing_context: ProcessingContext
+  run_id: string
   envelope: {
     subject?: string
     from?: string
     date?: string
-    messageId: string
-  }
-  content: {
-    text: string
-    html: string
-    markdown: string
   }
   spam_analysis: {
     is_spam: boolean
     high_confidence: boolean
     spam_rules_matched: string[]
     spammy_qualities: string[]
-  }
-  human_interaction?: {
-    timestamp: string
-    approved: boolean
-    feedback?: string
-    updated_ruleset?: string
   }
   final_classification: {
     category:
@@ -45,7 +32,6 @@ export interface EmailDataPoint {
       | "notify_immediately"
       | "draft_reply"
       | "try_unsubscribe"
-      | "execute_code"
     summary?: string
     message?: string
   }
@@ -88,18 +74,7 @@ export interface GlobalIndex {
   runs: string[]
 }
 
-export function generateContentHash(
-  subject: string,
-  from: string,
-  body: string,
-): string {
-  const content = `${subject || ""}|${from || ""}|${body || ""}`
-  return crypto
-    .createHash("sha256")
-    .update(content)
-    .digest("hex")
-    .substring(0, 16)
-}
+// Simplified - no content hashing needed, use message ID
 
 export function getCurrentRulesVersion(): string {
   try {
@@ -117,12 +92,10 @@ export function getModelVersion(): string {
 
 export class DatasetManager {
   private datasetsDir: string
-  private currentRunDir: string
   private currentRunId: string
 
   constructor() {
     this.datasetsDir = path.join(process.cwd(), "datasets")
-    this.currentRunDir = ""
     this.currentRunId = ""
   }
 
@@ -131,11 +104,6 @@ export class DatasetManager {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
     const runId = `run-${timestamp}`
     this.currentRunId = runId
-    this.currentRunDir = path.join(this.datasetsDir, "runs", runId)
-    await fs.mkdir(this.currentRunDir, { recursive: true })
-    await fs.mkdir(path.join(this.currentRunDir, "emails"), {
-      recursive: true,
-    })
 
     const metadata: RunMetadata = {
       run_id: runId,
