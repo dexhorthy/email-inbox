@@ -99,11 +99,19 @@ export class DatasetManager {
     this.currentRunId = ""
   }
 
+  private get currentRunDir(): string {
+    return path.join(this.datasetsDir, "runs", this.currentRunId)
+  }
+
   async startNewRun(): Promise<string> {
     await fs.mkdir(this.datasetsDir, { recursive: true })
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
     const runId = `run-${timestamp}`
     this.currentRunId = runId
+
+    // Create run directory and subdirectories
+    await fs.mkdir(this.currentRunDir, { recursive: true })
+    await fs.mkdir(path.join(this.currentRunDir, "emails"), { recursive: true })
 
     const metadata: RunMetadata = {
       run_id: runId,
@@ -144,7 +152,7 @@ export class DatasetManager {
       throw new Error("No run started. Call startNewRun() first.")
     }
 
-    const filename = `${emailData.id}.json`
+    const filename = `${emailData.message_id}.json`
     const filepath = path.join(this.currentRunDir, "emails", filename)
     await fs.writeFile(filepath, JSON.stringify(emailData, null, 2))
 
@@ -219,21 +227,21 @@ export class DatasetManager {
       this.datasetsDir,
       "emails",
       "by-hash",
-      `${emailData.content_hash}.json`,
+      `${crypto.createHash("sha256").update(emailData.message_id).digest("hex")}.json`,
     )
     const messageIdIndexPath = path.join(
       this.datasetsDir,
       "emails",
       "by-message-id",
-      `${emailData.envelope.messageId}.json`,
+      `${emailData.message_id}.json`,
     )
 
     const runEntry = {
       run_id: this.currentRunId,
-      email_id: emailData.id,
+      email_id: emailData.message_id,
       timestamp: emailData.timestamp,
-      rules_version: emailData.processing_context.rules_version,
-      model_version: emailData.processing_context.model_version,
+      rules_version: getCurrentRulesVersion(),
+      model_version: getModelVersion(),
     }
 
     try {
@@ -243,7 +251,10 @@ export class DatasetManager {
       await fs.writeFile(hashIndexPath, JSON.stringify(hashData, null, 2))
     } catch {
       const newHashData = {
-        content_hash: emailData.content_hash,
+        content_hash: crypto
+          .createHash("sha256")
+          .update(emailData.message_id)
+          .digest("hex"),
         first_seen: emailData.timestamp,
         runs: [runEntry],
       }
@@ -260,7 +271,7 @@ export class DatasetManager {
       )
     } catch {
       const newMessageData = {
-        message_id: emailData.envelope.messageId,
+        message_id: emailData.message_id,
         first_seen: emailData.timestamp,
         runs: [runEntry],
       }

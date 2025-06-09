@@ -16,6 +16,11 @@ export interface EmailFetcher {
   fetchEmail(): Promise<gmail_v1.Schema$Message>
 }
 
+export interface RulesManager {
+  loadRules(): Promise<string>
+  saveRules(rules: string): Promise<void>
+}
+
 export interface GmailLabeler {
   labelEmail(messageId: string, labelName: "SPAM" | string): Promise<void>
 }
@@ -148,7 +153,7 @@ do NOT mark as spam emails that:
 - pertain to event notifications
 - contain an authentication/authorization code e.g. for 2FA
 - contain a "magic link" to sign in or similar.`
-      
+
       // Create the file with default rules if it doesn't exist
       await this.saveRules(defaultRules)
       return defaultRules
@@ -355,8 +360,8 @@ export async function handleEmailWithDependencies(
     // Save to dataset
     await datasetWriter.saveEmailClassification(
       emailInfo.id!,
-      subject,
-      from,
+      subject || undefined,
+      from || undefined,
       isSpam.is_spam,
       finalClassification,
       markdownContent.text,
@@ -427,8 +432,8 @@ export async function handleEmailWithDependencies(
   // Save to dataset
   await datasetWriter.saveEmailClassification(
     emailInfo.id!,
-    subject,
-    from,
+    subject || undefined,
+    from || undefined,
     isSpam.is_spam,
     finalClassification,
     markdownContent.text,
